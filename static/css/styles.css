@@ -1,0 +1,25 @@
+body {
+    font-family: Arial, sans-serif;
+}
+
+.header {
+    background-color: #d4edda;
+    color: #155724;
+    padding: 10px 20px;
+    text-align: left; /* 标题文字居左 */
+    font-size: 20px;
+    font-weight: bold;
+    border-bottom: 2px solid #c3e6cb;
+}
+
+.container {
+    margin-top: 20px;
+}
+
+/* 中心化 login, register 和 forgot password 页面中的组件 */
+.centered-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 80vh;
+}
