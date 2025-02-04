@@ -30,7 +30,7 @@ $(document).ready(function() {
 
             if (response.ok) {
                 alert('Password reset successful! Please login with your new password.');
-                window.location.href = '/static/login.html';
+                window.location.href = '/login';
             } else {
                 const errorData = await response.json();
                 alert(`Password reset failed: ${errorData.detail}`);

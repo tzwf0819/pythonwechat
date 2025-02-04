@@ -1,23 +1,15 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Home</title>
-    <link href="/static/libs/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/styles.css">
-</head>
-<body>
-    <div class="header">易达软件小程序后端管理平台</div>
-    <div class="container">
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+    <div class="container centered-container">
         <div class="mt-5">
-            <h1>Welcome Home</h1>
+            <h2>Welcome Home</h2>
             <button id="logout-btn" class="btn btn-danger">Logout</button>
         </div>
     </div>
-
-    <script src="/static/libs/jquery.min.js"></script>
-    <script src="/static/libs/bootstrap.min.js"></script>
-    <script src="/static/js/home.js"></script>
-</body>
-</html>
+    <script src="{{ url_for('static', path='/libs/jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', path='/libs/bootstrap.min.js') }}"></script>
+    <script src="{{ url_for('static', path='/js/home.js') }}"></script>
+{% endblock %}

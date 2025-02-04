@@ -22,7 +22,7 @@ $(document).ready(function() {
 
             if (response.ok) {
                 alert('Registration successful! Please login.');
-                window.location.href = '/static/login.html';
+                window.location.href = '/login';
             } else {
                 const errorData = await response.json();
                 alert(`Registration failed: ${errorData.detail}`);

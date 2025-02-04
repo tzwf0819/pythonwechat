@@ -4,7 +4,7 @@ $(document).ready(function() {
     // 检查是否有 token
     const token = localStorage.getItem('access_token');
     if (!token) {
-        window.location.href = '/static/login.html';
+        window.location.href = '/login';
         return;
     }
 
@@ -28,7 +28,7 @@ $(document).ready(function() {
         } catch (error) {
             console.error(error);
             localStorage.removeItem('access_token');
-            window.location.href = '/static/login.html';
+            window.location.href = '/login';
         }
     }
 
@@ -37,6 +37,6 @@ $(document).ready(function() {
     // 注销按钮事件处理
     $('#logout-btn').on('click', function() {
         localStorage.removeItem('access_token');
-        window.location.href = '/static/login.html';
+        window.location.href = '/login';
     });
 });

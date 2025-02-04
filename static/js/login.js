@@ -21,9 +21,10 @@ $(document).ready(function() {
             if (response.ok) {
                 const data = await response.json();
                 localStorage.setItem('access_token', data.access_token);
-                window.location.href = '/static/home.html';
+                window.location.href = '/home';
             } else {
-                alert('Login failed: Incorrect username or password');
+                const errorData = await response.json();
+                alert(`Login failed: ${errorData.detail}`);
             }
         } catch (error) {
             alert(`Login failed: ${error.message}`);
