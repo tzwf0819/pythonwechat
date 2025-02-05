@@ -6,6 +6,7 @@
     <div class="container centered-container">
         <div class="mt-5">
             <h2>Welcome Home</h2>
+            {% include "list_box.html" %}
             <button id="logout-btn" class="btn btn-danger">Logout</button>
         </div>
     </div>
@@ -13,3 +14,4 @@
     <script src="{{ url_for('static', path='/libs/bootstrap.min.js') }}"></script>
     <script src="{{ url_for('static', path='/js/home.js') }}"></script>
 {% endblock %}
+
