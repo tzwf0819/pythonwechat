@@ -6,9 +6,11 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
 
-from database import create_db_and_tables  # 假设你在database.py中定义了这个函数
+from database import create_db_and_tables ,get_session   # 假设你在database.py中定义了这个函数
 from auth import app as auth_app  # 导入auth.py中的app
-
+from fastapi import Depends
+from list_models import ListItem
+from sqlmodel import Session, create_engine, select
 app = FastAPI()
 
 
@@ -60,3 +62,8 @@ def home(request: Request):
 @app.get("/")
 def home(request: Request):
     return templates.TemplateResponse("home.html", {"request": request})
+
+@app.get("/items/")
+def read_items(session: Session = Depends(get_session)):
+    items = session.exec(select(ListItem)).all()
+    return items

@@ -1,6 +1,36 @@
-<!-- templates/list_box.html -->
-<div id="list-box">
-    <ul id="item-list">
-        <!-- 列表项可以通过JavaScript动态添加或使用Jinja2模板循环 -->
-    </ul>
-</div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Sidebar Menu</title>
+    <style>
+        /* 简单的CSS来样式化侧边栏 */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 200px;
+            height: 100%;
+            background-color: #f0f0f0;
+            overflow-y: auto;
+        }
+        .menu-item {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .menu-item:hover {
+            background-color: #e7e7e7;
+        }
+    </style>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}"> <!-- 引入CSS文件 -->
+
+</head>
+<body>
+
+<div id="sidebar-menu" class="sidebar"></div>
+
+<script src="{{ url_for('static', path='/js/list_box.js') }}"></script>
+
+</body>
+</html>
