@@ -15,12 +15,39 @@
             background-color: #f0f0f0;
             overflow-y: auto;
         }
+        .menu-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        .sub-menu {
+            display: none; /* 默认不显示子菜单 */
+            padding-left: 20px; /* 子菜单缩进 */
+        }
+        .menu-item.has-children > .sub-menu {
+            padding-left: 20px;
+        }
         .menu-item {
-            padding: 10px;
+            background-color: #FFFFFF;
+            cursor: pointer;
+            padding: 8px;
             border-bottom: 1px solid #ddd;
         }
-        .menu-item:hover {
-            background-color: #e7e7e7;
+        .menu-list > .menu-item {
+            background-color: #f0f0f0; /* 顶级菜单背景颜色 */
+        }
+        .sub-menu .menu-item {
+            background-color: #FFFFFF; /* 二级和三级菜单背景颜色为白色 */
+        }
+ 
+        .resize-handle {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 10px; /* 调整手柄的宽度 */
+            height: 100%;
+            cursor: ew-resize; /* 改变鼠标指针形状，提示可以左右拖动 */
+            background-color: #ccc; /* 让手柄更明显 */
         }
     </style>
     <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}"> <!-- 引入CSS文件 -->
@@ -28,7 +55,9 @@
 </head>
 <body>
 
-<div id="sidebar-menu" class="sidebar"></div>
+<div id="sidebar-menu" class="sidebar">
+    <div id="resize-handle" class="resize-handle"></div>
+</div>
 
 <script src="{{ url_for('static', path='/js/list_box.js') }}"></script>
 
