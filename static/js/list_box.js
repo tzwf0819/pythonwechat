@@ -25,37 +25,40 @@ async function fetchMenuItems(url) {
     }
     return await response.json();
 }
-
-function buildMenuTree(items, parentHierarchy = null) {
+function buildMenuTree(items, parentCode = '0-0-0') {
     return items
         .filter(item => {
-            // Match top-level items if no parentHierarchy, else match children of the given parent
-            return parentHierarchy === null ? item.hierarchy_code.match(/^\d+-0-0$/) : item.hierarchy_code.startsWith(parentHierarchy) && item.hierarchy_code !== parentHierarchy;
+            // 直接子菜单的判断逻辑：父菜单Code与子菜单Code第一段相同，且子菜单Code第二段不为0
+            const itemParts = item.hierarchy_code.split('-');
+            const parentParts = parentCode.split('-');
+            return itemParts[0] === parentParts[0] && (parentCode === '0-0-0' || itemParts[1] !== '0');
         })
         .map(item => ({
             ...item,
-            children: buildMenuTree(items, getNextLevelHierarchy(item.hierarchy_code))
+            // 递归构建子菜单，传入当前项的hierarchy_code作为下一轮的parentCode
+            children: buildMenuTree(items, item.hierarchy_code)
         }));
 }
 
 function getNextLevelHierarchy(hierarchy_code) {
     let parts = hierarchy_code.split('-').map(Number);
-    if (parts[2] === 0) { // It's a top-level or second-level item
-        parts[1] += 1;
-    } else { // It's a third-level or deeper item
-        parts[2] += 1;
+    if (parts[1] === 0 && parts[2] === 0) { // It's a top-level item
+        return `${parts[0]}-`;
+    } else if (parts[2] === 0) { // It's a second-level item
+        return `${parts[0]}-${parts[1]}-`;
+    } else { // For deeper levels, you might need to adjust this
+        return hierarchy_code; // This example does not fully account for deeper levels
     }
-    return parts.join('-').replace(/-0$/, ''); // Remove trailing -0 for parent matching
 }
 
 function generateMenuHtml(menuItems) {
     let html = '<ul class="menu-list">';
     for (const item of menuItems) {
-        const hasChildren = item.children && item.children.length;
-        html += `<li class="menu-item${hasChildren ? ' has-children' : ''}">`;
+        html += `<li class="menu-item${item.children && item.children.length ? ' has-children' : ''}">`;
         html += `<span class="menu-toggle">${item.name}</span>`;
-        if (hasChildren) {
-            html += `<div class="sub-menu">${generateMenuHtml(item.children)}</div>`; // 递归调用
+        if (item.children && item.children.length) {
+            // 递归调用来生成子菜单的HTML
+            html += `<div class="sub-menu">${generateMenuHtml(item.children)}</div>`;
         }
         html += '</li>';
     }
