@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}产品分类管理{% endblock %}
+
+{% block content %}
+<div class="container centered-container">
+    <div class="mt-5">
+        <h2>产品分类管理</h2>
+        {% include "list_box.html" %}
+        <div id="categoryForm">
+            <input type="text" id="categoryName" placeholder="分类名称" required>
+            <input type="text" id="creator" placeholder="创建人" required>
+            <button type="submit" id="addCategoryBtn" class="btn btn-primary">添加分类</button>
+        </div>
+        <table id="categoriesTable" class="table mt-3">
+            <thead>
+                <tr>
+                    <th>分类ID</th>
+                    <th>分类名称</th>
+                    <th>状态</th>
+                    <th>创建人</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- 分类数据将通过JavaScript动态填充 -->
+            </tbody>
+        </table>
+    </div>
+</div>
+<!-- 编辑分类模态框 -->
+<div class="modal fade" id="editCategoryModal" tabindex="-1" role="dialog" aria-labelledby="editCategoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editCategoryModalLabel">编辑分类</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="edit-category-form">
+            <div class="form-group">
+              <label for="edit-category-name">分类名称</label>
+              <input type="text" class="form-control" id="edit-category-name" required>
+            </div>
+            <div class="form-group">
+              <label for="edit-category-status">状态</label>
+              <select class="form-control" id="edit-category-status">
+                <option value="true">激活</option>
+                <option value="false">隐藏</option>
+              </select>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+          <button type="button" class="btn btn-primary" id="save-category-changes">保存更改</button>
+        </div>
+      </div>
+    </div>
+  </div>
+<script src="{{ url_for('static', path='/libs/jquery.min.js') }}"></script>
+<script src="{{ url_for('static', path='/libs/bootstrap.min.js') }}"></script>
+<script src="{{ url_for('static', path='/js/category_management.js') }}"></script>
+{% endblock %}

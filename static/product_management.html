@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}产品信息管理{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>产品信息管理</h2>
+    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#productModal">
+        添加产品
+    </button>
+
+    <table class="table mt-3" id="productsTable">
+        <thead>
+            <tr>
+                <th>产品ID</th>
+                <th>产品名称</th>
+                <th>产品规格</th>
+                <th>产品价格</th>
+                <th>产品描述</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- 产品信息将通过JavaScript动态填充 -->
+        </tbody>
+    </table>
+</div>
+
+<!-- 添加/编辑产品信息模态框 -->
+<div class="modal fade" id="productModal" tabindex="-1" role="dialog" aria-labelledby="productModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="productModalLabel">添加产品</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="product-form">
+          <div class="form-group">
+            <label for="productName">产品名称</label>
+            <input type="text" class="form-control" id="productName" required>
+          </div>
+          <div class="form-group">
+            <label for="productSpecification">产品规格</label>
+            <input type="text" class="form-control" id="productSpecification">
+          </div>
+          <div class="form-group">
+            <label for="productPrice">产品价格</label>
+            <input type="number" class="form-control" id="productPrice">
+          </div>
+          <div class="form-group">
+            <label for="productDescription">产品描述</label>
+            <textarea class="form-control" id="productDescription"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+        <button type="button" class="btn btn-primary" id="saveProductBtn">保存产品</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="{{ url_for('static', path='/libs/jquery.min.js') }}"></script>
+<script src="{{ url_for('static', path='/libs/bootstrap.min.js') }}"></script>
+<script src="{{ url_for('static', path='/js/product_management.js') }}"></script>
+{% endblock %}

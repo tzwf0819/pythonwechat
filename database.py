@@ -1,5 +1,6 @@
 from sqlmodel import create_engine, SQLModel, Session, select
 from list_models import ListItem
+from models import ProductCategory
 # MSSQL数据库连接字符串
 mssql_url = "mssql+pyodbc://sa:shaoyansa@localhost:1433/yida?driver=ODBC+Driver+17+for+SQL+Server"
 engine = create_engine(mssql_url, echo=True)

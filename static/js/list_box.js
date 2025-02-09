@@ -25,19 +25,17 @@ async function fetchMenuItems(url) {
     }
     return await response.json();
 }
-function buildMenuTree(items, parentCode = '0-0-0') {
-    return items
-        .filter(item => {
-            // 直接子菜单的判断逻辑：父菜单Code与子菜单Code第一段相同，且子菜单Code第二段不为0
-            const itemParts = item.hierarchy_code.split('-');
-            const parentParts = parentCode.split('-');
-            return itemParts[0] === parentParts[0] && (parentCode === '0-0-0' || itemParts[1] !== '0');
-        })
-        .map(item => ({
-            ...item,
-            // 递归构建子菜单，传入当前项的hierarchy_code作为下一轮的parentCode
-            children: buildMenuTree(items, item.hierarchy_code)
-        }));
+function buildMenuTree(items) {
+    // 首先过滤出所有顶级菜单项
+    let topLevelMenus = items.filter(item => item.hierarchy_code.endsWith('-0'));
+    // 然后为每个顶级菜单找到其子菜单
+    topLevelMenus.forEach(menu => {
+        menu.children = items.filter(subItem => 
+            subItem.hierarchy_code.startsWith(menu.hierarchy_code.split('-')[0] + '-') &&
+            !subItem.hierarchy_code.endsWith('-0')
+        );
+    });
+    return topLevelMenus;
 }
 
 function getNextLevelHierarchy(hierarchy_code) {
@@ -55,7 +53,14 @@ function generateMenuHtml(menuItems) {
     let html = '<ul class="menu-list">';
     for (const item of menuItems) {
         html += `<li class="menu-item${item.children && item.children.length ? ' has-children' : ''}">`;
-        html += `<span class="menu-toggle">${item.name}</span>`;
+
+        // 检查是否有target_url来决定是否包裹<a>标签
+        if (item.target_url) {
+            html += `<span class="menu-toggle"><a href="${item.target_url}">${item.name}</a></span>`;
+        } else {
+            html += `<span class="menu-toggle">${item.name}</span>`;
+        }
+
         if (item.children && item.children.length) {
             // 递归调用来生成子菜单的HTML
             html += `<div class="sub-menu">${generateMenuHtml(item.children)}</div>`;
