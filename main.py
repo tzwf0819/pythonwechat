@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, File, UploadFile
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -12,6 +12,19 @@ from fastapi import Depends
 from list_models import ListItem
 from sqlmodel import Session, create_engine, select
 from models import ProductCategory, Product
+import tempfile
+from obs import ObsClient, PutObjectHeader
+import os
+import traceback
+import uuid
+ak = "DYFIHWVRWEP8OCHJKRD0"  # 替换为你的 AK
+sk = "yG9DwZDAbpINWZd1aoZqhrBjFjLj7WHdqfqe5z3k"  # 替换为你的 SK
+server  = "https://obs.cn-north-4.myhuaweicloud.com"  # 替换为你的 endpoint
+bucket_name = 'yida-wechat'
+  # 替换为你的实际 bucket 名称
+obs_client = ObsClient(access_key_id=ak, secret_access_key=sk, server=server)
+
+
 
 app = FastAPI()
 
@@ -121,8 +134,13 @@ def delete_category(category_id: int, session: Session = Depends(get_session)):
     return db_category
 
 # 创建产品
-@app.post("/products/")
+@app.post("/products/", response_model=Product)
 def create_product(product: Product, session: Session = Depends(get_session)):
+    # 验证产品分类是否存在
+    category = session.get(ProductCategory, product.product_category_id)
+    if not category:
+        raise HTTPException(status_code=404, detail=f"Category with ID {product.product_category_id} not found")
+    
     session.add(product)
     session.commit()
     session.refresh(product)
@@ -143,24 +161,73 @@ def read_product(product_id: int, session: Session = Depends(get_session)):
     return product
 
 # 更新产品
-@app.put("/products/{product_id}")
-def update_product(product_id: int, product: Product, session: Session = Depends(get_session)):
+@app.put("/products/{product_id}", response_model=Product)
+def update_product(product_id: int, product_update: Product, session: Session = Depends(get_session)):
     db_product = session.get(Product, product_id)
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
-    product_data = product.dict(exclude_unset=True)
+    
+    # 更新字段
+    product_data = product_update.dict(exclude_unset=True)
     for key, value in product_data.items():
         setattr(db_product, key, value)
+    
     session.commit()
     session.refresh(db_product)
     return db_product
 
 # 删除产品
-@app.delete("/products/{product_id}")
+@app.delete("/products/{product_id}", response_model=dict)
 def delete_product(product_id: int, session: Session = Depends(get_session)):
     product = session.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+    
     session.delete(product)
     session.commit()
-    return {"ok": True}
+    return {"message": "Product deleted successfully"}
+
+@app.post("/upload/")
+async def upload_image(file: UploadFile = File(...)):
+    try:
+        # 创建临时文件
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_file_path = temp_file.name
+            content = await file.read()
+            temp_file.write(content)
+        
+        # 上传对象的附加头域
+        headers = PutObjectHeader()
+        # 【可选】待上传对象的MIME类型
+        headers.contentType = file.content_type
+        # 使用 UUID 生成唯一文件名
+        unique_filename = f"{uuid.uuid4().hex}_{file.filename}"
+        object_key = unique_filename
+        # 上传文件的自定义元数据
+        metadata = {'meta1': 'value1', 'meta2': 'value2'}
+        # 文件上传
+        resp = obs_client.putFile(bucket_name, object_key, temp_file_path, metadata, headers)
+        
+        # 删除临时文件
+        os.remove(temp_file_path)
+        
+        # 返回码为2xx时，接口调用成功，否则接口调用失败
+        if resp.status < 300:
+            print('Put File Succeeded')
+            print('requestId:', resp.requestId)
+            print('etag:', resp.body.etag)
+            print('versionId:', resp.body.versionId)
+            print('storageClass:', resp.body.storageClass)
+            # 构建图片URL
+            image_url = f"https://{bucket_name}.obs.cn-north-4.myhuaweicloud.com/{object_key}"
+            return {"image_url": image_url}
+        else:
+            print('Put File Failed')
+            print('requestId:', resp.requestId)
+            print('errorCode:', resp.errorCode)
+            print('errorMessage:', resp.errorMessage)
+            return {"error": resp.errorMessage}
+    except Exception as e:
+        print('Put File Failed')
+        print(traceback.format_exc())
+        return {"error": str(e)}

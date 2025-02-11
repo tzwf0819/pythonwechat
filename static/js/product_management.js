@@ -1,60 +1,197 @@
 $(document).ready(function() {
-    // 加载产品列表
-    fetchProducts();
+    let categories = {};
+    fetchCategoriesAndFillDropdown();
 
-    // 处理保存产品按钮点击事件
+    function fetchCategoriesAndFillDropdown() {
+        fetch('/categories/')
+        .then(response => response.json())
+        .then(data => {
+            const categoryDropdown = $('#productCategory');
+            categoryDropdown.empty();
+            data.forEach(category => {
+                categories[category.category_id] = category.category_name;
+                categoryDropdown.append(`<option value="${category.category_id}">${category.category_name}</option>`);
+            });
+            fetchProducts(); // 在加载分类信息后再加载产品信息
+        })
+        .catch(error => console.error('Error fetching categories:', error));
+    }
+
     $('#saveProductBtn').click(function() {
-        const productName = $('#productName').val();
-        const productSpecification = $('#productSpecification').val();
-        const productPrice = $('#productPrice').val();
-        const productDescription = $('#productDescription').val();
+        let formData = {
+            product_category_id: parseInt($('#productCategory').val()),
+            product_name: $('#productName').val(),
+            product_specification: $('#productSpecification').val(),
+            product_price: parseFloat($('#productPrice').val()),
+            product_description: $('#productDescription').val(),
+            product_parameters: $('#productParameters').val(),
+            product_image: $('#productImageUrl').val()
+        };
 
-        // 发送请求添加产品
-        fetch('/products/', {
-            method: 'POST',
+        console.log(formData);
+
+        let method = currentEditingProductId ? 'PUT' : 'POST';
+        let apiEndpoint = currentEditingProductId ? `/products/${currentEditingProductId}` : '/products/';
+
+        fetch(apiEndpoint, {
+            method: method,
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                product_name: productName,
-                product_specification: productSpecification,
-                product_price: productPrice,
-                product_description: productDescription
-            })
+            body: JSON.stringify(formData)
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
         .then(data => {
-            $('#productModal').modal('hide'); // 隐藏模态框
-            fetchProducts(); // 重新加载产品列表
+            $('#productModal').modal('hide');
+            $('body').removeClass('modal-open');
+            $('.modal-backdrop').remove();
+            fetchProducts();
+            currentEditingProductId = null;
+            resetProductForm();
         })
         .catch((error) => {
             console.error('Error:', error);
         });
     });
-});
 
-function fetchProducts() {
-    fetch('/products/')
-    .then(response => response.json())
-    .then(data => {
-        const tableBody = $('#productsTable tbody');
-        tableBody.empty(); // 清空表格体
-        data.forEach(product => {
-            tableBody.append(`
-                <tr>
-                    <td>${product.product_id}</td>
-                    <td>${product.product_name}</td>
-                    <td>${product.product_specification}</td>
-                    <td>${product.product_price}</td>
-                    <td>${product.product_description}</td>
-                    <td>
-                        <!-- 在这里添加编辑和删除按钮 -->
-                    </td>
-                </tr>
-            `);
+    function fetchProducts() {
+        fetch('/products/')
+        .then(response => response.json())
+        .then(data => {
+            const tableBody = $('#productsTable tbody');
+            tableBody.empty();
+            data.forEach(product => {
+                let row = $('<tr></tr>');
+                row.append(`<td>${product.product_id}</td>`);
+                // 根据 product_category_id 查找分类名称
+                const categoryName = categories[product.product_category_id] || '未分类';
+                row.append(`<td>${categoryName}</td>`);
+                row.append(`<td>${product.product_name}</td>`);
+                row.append(`<td>${product.product_specification}</td>`);
+
+                let actionsCell = $('<td></td>');
+                let editButton = $('<button class="btn btn-info btn-sm">编辑</button>');
+                let deleteButton = $('<button class="btn btn-danger btn-sm ml-2">删除</button>');  // 单引号修正
+
+                editButton.click(function() {
+                    currentEditingProductId = product.product_id;
+                    $('#productCategory').val(product.product_category_id);
+                    $('#productName').val(product.product_name);
+                    $('#productSpecification').val(product.product_specification);
+                    $('#productPrice').val(product.product_price);
+                    $('#productDescription').val(product.product_description);
+                    $('#productParameters').val(product.product_parameters);
+
+                    if (product.product_image) {
+                        $('#productImageUrl').val(product.product_image);
+                        $('#productImagePreview').attr('src', product.product_image).show();
+                    } else {
+                        $('#productImageUrl').val('');
+                        $('#productImagePreview').hide();
+                    }
+
+                    $('#productModal').modal('show');
+                });
+
+                deleteButton.click(function() {
+                    if (confirm('确定要删除这个产品吗？')) {
+                        fetch(`/products/${product.product_id}`, {
+                            method: 'DELETE',
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            console.log('Product deleted successfully:', data);
+                            fetchProducts();
+                        })
+                        .catch((error) => {
+                            console.error('Error:', error);
+                        });
+                    }
+                });
+
+                actionsCell.append(editButton);
+                actionsCell.append(deleteButton);
+                row.append(actionsCell);
+                tableBody.append(row);
+            });
+        })
+        .catch((error) => {
+            console.error('Error:', error);
         });
-    })
-    .catch((error) => {
-        console.error('Error:', error);
+    }
+
+    $('#productModal').on('show.bs.modal', function (e) {
+        fetchCategoriesAndFillDropdown();
     });
-}
+
+    $('#productModal').on('hidden.bs.modal', function (e) {
+        resetProductForm();
+    });
+
+    function resetProductForm() {
+        $('#product-form')[0].reset();
+        $('#productImagePreview').hide();
+        $('#productImageUrl').val('');
+        $('.progress').hide();
+        $('.progress-bar').css('width', '0%').attr('aria-valuenow', 0);
+    }
+
+    document.getElementById('productImage').addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (!file) {
+            console.error('No file selected.');
+            return;
+        }
+
+        let formData = new FormData();
+        formData.append('file', file);
+
+        $('.progress').show();
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/upload/', true);
+
+        xhr.upload.onprogress = function(event) {
+            if (event.lengthComputable) {
+                const percentComplete = Math.round((event.loaded * 100) / event.total);
+                $('.progress-bar').css('width', percentComplete + '%').attr('aria-valuenow', percentComplete);
+            }
+        };
+
+        xhr.onload = function() {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                const data = JSON.parse(xhr.responseText);
+                if (data.image_url) {
+                    document.getElementById('productImageUrl').value = data.image_url;
+                    document.getElementById('productImagePreview').src = data.image_url;
+                    document.getElementById('productImagePreview').style.display = 'block';
+                } else {
+                    console.error('No image_url in response');
+                }
+            } else {
+                console.error('Failed to upload image');
+            }
+
+            $('.progress').hide();
+            $('.progress-bar').css('width', '0%').attr('aria-valuenow', 0);
+        };
+
+        xhr.onerror = function() {
+            console.error('Error uploading image');
+            $('.progress').hide();
+            $('.progress-bar').css('width', '0%').attr('aria-valuenow', 0);
+        };
+
+        xhr.send(formData);
+    });
+});
