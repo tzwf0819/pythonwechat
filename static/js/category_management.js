@@ -1,27 +1,47 @@
 document.addEventListener('DOMContentLoaded', function() {
+    checkLogin();
     fetchCategories();
     fetchCurrentUserInfo();
 });
 
-function fetchCurrentUserInfo() {
-    const token = localStorage.getItem('access_token'); // 假设令牌存储在localStorage中
+function checkLogin() {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+        window.location.href = '/login';
+    }
+}
 
-    fetch('http://127.0.0.1:8000/auth/users/me/', { // 确保使用你的后端API端点
+function fetchCurrentUserInfo() {
+    const token = localStorage.getItem('access_token');
+
+    fetch('http://127.0.0.1:8000/auth/users/me/', {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token // 添加认证头部
+            'Authorization': 'Bearer ' + token
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Token expired or invalid');
+        }
+        return response.json();
+    })
     .then(data => {
-        document.getElementById('creator').value = data.full_name; // 用返回的full_name填充
+        document.getElementById('creator').value = data.full_name; 
+        document.getElementById('user-fullname').innerText = `Welcome, ${data.full_name}`;
     })
     .catch((error) => {
         console.error('Error:', error);
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
     });
 }
 
+document.getElementById('logout-btn').addEventListener('click', function() {
+    localStorage.removeItem('access_token');
+    window.location.href = '/login';
+});
 
 document.getElementById('addCategoryBtn').addEventListener('click', function(e) {
     e.preventDefault();
@@ -65,8 +85,8 @@ function fetchCategories() {
             let editButton = document.createElement('button');
             editButton.innerText = '编辑';
             editButton.className = 'btn btn-primary btn-sm';
-            editButton.setAttribute('data-id', category.category_id); // 设置分类ID为按钮的数据属性
-            editButton.onclick = function() { editCategory(this.getAttribute('data-id')); }; // 绑定点击事件处理函数
+            editButton.setAttribute('data-id', category.category_id);
+            editButton.onclick = function() { editCategory(this.getAttribute('data-id')); };
             actionsCell.appendChild(editButton);
 
             let deleteButton = document.createElement('button');
@@ -84,8 +104,8 @@ function editCategory(categoryId) {
     .then(data => {
         document.getElementById('edit-category-name').value = data.category_name;
         document.getElementById('edit-category-status').value = data.category_status.toString();
-        $('#editCategoryModal').modal('show'); // 使用jQuery显示模态框
-        $('#save-category-changes').data('id', categoryId); // 将分类ID存储在保存按钮的数据属性中
+        $('#editCategoryModal').modal('show');
+        $('#save-category-changes').data('id', categoryId);
     })
     .catch(error => console.error('Error:', error));
 }
@@ -102,31 +122,8 @@ function deleteCategory(categoryId) {
     });
 }
 
-function updateCategory(categoryId, newName) {
-    fetch(`/categories/${categoryId}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + localStorage.getItem('access_token') // 添加认证头部
-        },
-        body: JSON.stringify({
-            category_name: newName
-        })
-    })
-    .then(response => {
-        if (response.ok) {
-            fetchCategories(); // 更新成功后重新加载分类列表
-        } else {
-            alert('更新分类失败');
-        }
-    })
-    .catch((error) => {
-        console.error('Error:', error);
-    });
-}
-
 $('#save-category-changes').click(function() {
-    const categoryId = $(this).data('id'); // 从保存按钮的数据属性中获取分类ID
+    const categoryId = $(this).data('id');
     const categoryName = $('#edit-category-name').val();
     const categoryStatus = $('#edit-category-status').val() === 'true';
 
@@ -134,7 +131,7 @@ $('#save-category-changes').click(function() {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + localStorage.getItem('access_token') // 添加认证头部
+            'Authorization': 'Bearer ' + localStorage.getItem('access_token')
         },
         body: JSON.stringify({
             category_name: categoryName,
@@ -143,7 +140,7 @@ $('#save-category-changes').click(function() {
     })
     .then(response => {
         if (response.ok) {
-            $('#editCategoryModal').modal('hide'); // 隐藏模态框
+            $('#editCategoryModal').modal('hide');
             fetchCategories(); // 重新加载分类列表
         } else {
             alert('更新分类失败');

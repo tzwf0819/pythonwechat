@@ -144,6 +144,7 @@ async def create_user(user: UserCreate, session: Annotated[Session, Depends(get_
 async def read_users_me(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
+    print("Debug: current_user:", current_user)
     return current_user
 
 @app.get("/users/me/items/")

@@ -5,7 +5,13 @@
 {% block content %}
 <div class="container centered-container">
     <div class="mt-5">
-        <h2>产品分类管理</h2>
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>产品分类管理</h2>
+            <div id="user-info" class="d-flex align-items-center">
+                <span id="user-fullname" class="mr-3"></span>
+                <button id="logout-btn" class="btn btn-danger">注销</button>
+            </div>
+        </div>
         {% include "list_box.html" %}
         <div id="categoryForm">
             <input type="text" id="categoryName" placeholder="分类名称" required>
