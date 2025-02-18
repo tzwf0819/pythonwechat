@@ -4,8 +4,15 @@
 
 {% block content %}
 <div class="container">
-    <h2>产品信息管理</h2>
-    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#productModal">
+    <div class="d-flex justify-content-between align-items-center">
+        <h2>产品信息管理</h2>
+        {% include "list_box.html" %}
+        <div id="user-info" class="d-flex align-items-center">
+            <span id="user-fullname" class="mr-3"></span>
+            <button id="logout-btn" class="btn btn-danger">注销</button>
+        </div>
+    </div>
+    <button type="button" class="btn btn-primary mt-3" data-toggle="modal" data-target="#productModal">
         添加产品
     </button>
 

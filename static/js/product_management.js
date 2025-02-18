@@ -1,6 +1,54 @@
 $(document).ready(function() {
     let categories = {};
+    let currentEditingProductId = null;  // 定义 currentEditingProductId 变量
+
+    checkLogin();
     fetchCategoriesAndFillDropdown();
+    fetchCurrentUserInfo();
+
+    function checkLogin() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            window.location.href = '/login';
+        }
+    }
+
+    function fetchCurrentUserInfo() {
+        const token = localStorage.getItem('access_token');
+
+        fetch('http://127.0.0.1:8000/auth/users/me/', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Token expired or invalid');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data && data.full_name) {
+                $('#user-fullname').text(`Welcome, ${data.full_name}`);
+            } else {
+                console.error('Error: full_name is not defined in the response');
+                localStorage.removeItem('access_token');
+                window.location.href = '/login';
+            }
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+            localStorage.removeItem('access_token');
+            window.location.href = '/login';
+        });
+    }
+
+    $('#logout-btn').click(function() {
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
+    });
 
     function fetchCategoriesAndFillDropdown() {
         fetch('/categories/')
