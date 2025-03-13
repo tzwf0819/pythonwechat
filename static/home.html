@@ -1,17 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}Home{% endblock %}
+{% block title %}首页{% endblock %}
 
 {% block content %}
     <div class="container centered-container">
         <div class="mt-5">
-            <h2>Welcome Home</h2>
+            <h2>欢迎回家</h2>
             {% include "list_box.html" %}
-            <button id="logout-btn" class="btn btn-danger">Logout</button>
+            <button id="logout-btn" class="btn btn-danger">退出登录</button>
         </div>
     </div>
     <script src="{{ url_for('static', path='/libs/jquery.min.js') }}"></script>
     <script src="{{ url_for('static', path='/libs/bootstrap.min.js') }}"></script>
     <script src="{{ url_for('static', path='/js/home.js') }}"></script>
 {% endblock %}
-
