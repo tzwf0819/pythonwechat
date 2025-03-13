@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends, File, UploadFile
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
 from typing import List
@@ -14,9 +14,13 @@ from sqlmodel import Session, create_engine, select
 from models import ProductCategory, Product
 import tempfile
 from obs import ObsClient, PutObjectHeader
+import time
 import os
 import traceback
 import uuid
+import asyncio
+
+
 ak = "DYFIHWVRWEP8OCHJKRD0"  # 替换为你的 AK
 sk = "yG9DwZDAbpINWZd1aoZqhrBjFjLj7WHdqfqe5z3k"  # 替换为你的 SK
 server  = "https://obs.cn-north-4.myhuaweicloud.com"  # 替换为你的 endpoint
@@ -49,14 +53,47 @@ app.mount("/auth", auth_app)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
-'''
-@app.get("/")
-async def read_root():
-    return RedirectResponse(url="/static/home.html")
-'''
+
 
 
 templates = Jinja2Templates(directory="static")
+
+# 全局变量，用于存储数据库连接状态
+database_connected = True
+
+# 全局变量，用于存储数据库连接状态
+database_connected = True
+
+# 数据库连接重试逻辑
+def check_database_connection():
+    try:
+        create_db_and_tables()
+        return True
+    except Exception as e:
+        print(f"Database connection error: {e}")
+        return False
+
+# 后台任务，定期检查数据库连接状态
+async def monitor_database_connection():
+    global database_connected
+    while True:
+        if not check_database_connection():
+            print("Database connection lost. Exiting main app...")
+            database_connected = False
+            sys.exit(1)  # 退出 main_app
+        await asyncio.sleep(300)  # 每5分钟检查一次
+
+@app.on_event("startup")
+async def on_startup():
+    if not check_database_connection():
+        print("Failed to connect to the database. Exiting main app...")
+        sys.exit(1)  # 退出 main_app
+    # 启动后台任务
+    asyncio.create_task(monitor_database_connection())
+
+@app.get("/")
+async def read_root(request: Request):
+    return templates.TemplateResponse("home.html", {"request": request})
 
 @app.get("/login")
 def login(request: Request):
@@ -82,9 +119,7 @@ def home(request: Request):
 def home(request: Request):
     return templates.TemplateResponse("product_management.html", {"request": request})
 
-@app.get("/")
-def home(request: Request):
-    return templates.TemplateResponse("home.html", {"request": request})
+
 
 @app.get("/items/")
 def read_items(session: Session = Depends(get_session)):
@@ -231,3 +266,5 @@ async def upload_image(file: UploadFile = File(...)):
         print('Put File Failed')
         print(traceback.format_exc())
         return {"error": str(e)}
+    
+

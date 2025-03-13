@@ -1,9 +1,9 @@
 from sqlmodel import create_engine, SQLModel, Session, select
 from list_models import ListItem
-from models import ProductCategory
+import os
+
 # MSSQL数据库连接字符串
-#mssql_url = "mssql+pyodbc://sa:shaoyansa@localhost:1433/yida?driver=ODBC+Driver+17+for+SQL+Server"
-mssql_url = "mssql+pyodbc://sa:ABCabc123@150.158.136.4:1433/yida?driver=ODBC+Driver+17+for+SQL+Server&Encrypt=no&TrustServerCertificate=no"
+mssql_url = "mssql+pyodbc://sa:shaoyansa@localhost:1433/yida?driver=ODBC+Driver+17+for+SQL+Server"
 engine = create_engine(mssql_url, echo=True)
 
 def get_session():
@@ -11,29 +11,35 @@ def get_session():
         yield session
 
 def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        # 插入初始数据之前，您可能想要检查数据是否已经存在，以避免重复插入
-        existing_data = session.exec(select(ListItem)).first()
-        if not existing_data:
-            insert_initial_data(session)
-
+    try:
+        SQLModel.metadata.create_all(engine)
+        with Session(engine) as session:
+            existing_data = session.exec(select(ListItem)).first()
+            if not existing_data:
+                insert_initial_data(session)
+    except Exception as e:
+        print(f"Database connection error: {e}")
+        raise e
 
 def insert_initial_data(session: Session):
     # 定义一些初始数据
     initial_data = [
-        {"name": "顶级菜单", "hierarchy_code": "1-0-0", "level": 1, "target_url": "/top-menu-1"},
-        {"name": "二级菜单1", "hierarchy_code": "1-1-0", "level": 2, "target_url": "/second-menu-1-1"},
-        {"name": "二级菜单2", "hierarchy_code": "1-2-0", "level": 2, "target_url": "/second-menu-1-2"},
-        {"name": "三级菜单1", "hierarchy_code": "1-1-1", "level": 3, "target_url": "/third-menu-1-1-1"},
+        {"name": "产品管理", "hierarchy_code": "1-0", "level": 1, "target_url": None},
+        {"name": "产品分类", "hierarchy_code": "1-1", "level": 2, "target_url": "/category_management"},
+        {"name": "产品信息", "hierarchy_code": "1-2", "level": 2, "target_url": "/product_management"},
+        {"name": "库房管理", "hierarchy_code": "2-0", "level": 1, "target_url": None},
+        {"name": "库存查询", "hierarchy_code": "2-1", "level": 2, "target_url": None},
+        {"name": "入库管理", "hierarchy_code": "2-2", "level": 2, "target_url": None},
+        {"name": "出库管理", "hierarchy_code": "2-3", "level": 2, "target_url": None},
+        {"name": "财务管理", "hierarchy_code": "3-0", "level": 1, "target_url": None},
+        {"name": "客户管理", "hierarchy_code": "3-1", "level": 2, "target_url": None},
+        {"name": "供应商管理", "hierarchy_code": "3-2", "level": 2, "target_url": None},
+        {"name": "客户收付款", "hierarchy_code": "3-3", "level": 2, "target_url": None},
+        {"name": "供应商收付款", "hierarchy_code": "3-4", "level": 2, "target_url": None},
+        {"name": "系统管理", "hierarchy_code": "4-0", "level": 1, "target_url": None},
     ]
-
-    # 遍历初始数据，为每个项目创建 ListItem 实例，并添加到会话中
     for item in initial_data:
         list_item = ListItem(**item)
         session.add(list_item)
-    
-    # 提交会话以保存更改到数据库
     session.commit()
-
     print("初始数据已插入到数据库。")
