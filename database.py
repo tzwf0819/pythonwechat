@@ -3,8 +3,8 @@ from list_models import ListItem
 import os
 
 # MSSQL数据库连接字符串
-#mssql_url = "mssql+pyodbc://sa:shaoyansa@localhost:1433/yida?driver=ODBC+Driver+17+for+SQL+Server"
-mssql_url = "mssql+pyodbc://sa:ABCabc123@150.158.136.4:1433/yida?driver=ODBC+Driver+17+for+SQL+Server"
+mssql_url = "mssql+pyodbc://sa:shaoyansa@localhost:1433/yida?driver=ODBC+Driver+17+for+SQL+Server"
+#mssql_url = "mssql+pyodbc://sa:ABCabc123@150.158.136.4:1433/yida?driver=ODBC+Driver+17+for+SQL+Server"
 engine = create_engine(mssql_url, echo=True)
 
 def get_session():

@@ -14,6 +14,7 @@ body {
 
 .container {
     margin-top: 20px;
+    margin-bottom: 60px; /* 为底部备案信息留出空间 */
 }
 
 /* 中心化 login, register 和 forgot password 页面中的组件 */
@@ -53,4 +54,43 @@ body {
 }
 .main-content {
     margin-left: 200px;
+}
+
+
+
+/* 底部备案信息样式 */
+.footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: #d4edda; /* 与顶部标题栏颜色相同 */
+    color: #155724; /* 文字颜色与顶部标题栏相同 */
+    padding: 10px 20px; /* 内边距与顶部标题栏相同 */
+    text-align: left; /* 文字居左 */
+    font-size: 14px;
+    border-top: 2px solid #c3e6cb; /* 顶部边框与顶部标题栏相同 */
+    z-index: 1000; /* 确保备案信息在最上层 */
+}
+
+.icp-link {
+    text-decoration: none;
+    color: #155724; /* 文字颜色与顶部标题栏相同 */
+    font-size: 14px;
+    transition: color 0.3s ease;
+}
+
+.icp-link:hover {
+    color: #0c3a1d; /* 悬停时文字颜色变深 */
+}
+
+.icp-text {
+    padding: 5px 10px;
+    border-radius: 5px;
+    background-color: rgba(255, 255, 255, 0.1); /* 半透明背景 */
+    transition: background-color 0.3s ease;
+}
+
+.icp-link:hover .icp-text {
+    background-color: rgba(255, 255, 255, 0.2); /* 悬停时背景变亮 */
 }

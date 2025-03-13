@@ -13,6 +13,13 @@
         {% block content %}{% endblock %}
     </div>
 
+    <!-- 添加 ICP 备案信息底部栏 -->
+    <div class="footer">
+        <a href="https://beian.miit.gov.cn/" target="_blank" class="icp-link">
+            <span class="icp-text">冀ICP备2025103215号-1</span>
+        </a>
+    </div>
+
     <script src="{{ url_for('static', path='/libs/jquery.min.js') }}"></script>
     <script src="{{ url_for('static', path='/libs/bootstrap.min.js') }}"></script>
 </body>
