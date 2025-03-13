@@ -1,78 +1,72 @@
-import subprocess
-import time
-import os
-import signal
-import psutil  # 用于获取进程树并终止所有子进程
-from database import create_db_and_tables
+import logging
+import asyncio
+from uvicorn import Server, Config
+from database import create_db_and_tables  # 确保导入 create_db_and_tables
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# 全局变量，用于存储 Server 实例和任务
+main_app_server = None
+fallback_app_server = None
+main_app_task = None
+fallback_app_task = None
+
+async def stop_server(server):
+    if server:
+        logging.info("正在停止服务器...")
+        await server.shutdown()
+        logging.info("服务器已停止。")
+
+async def start_fallback_app():
+    global fallback_app_server
+    logging.info("启动回退应用...")
+    config = Config("fallback_app:app", host="0.0.0.0", port=8000, reload=True)
+    fallback_app_server = Server(config)
+    await fallback_app_server.serve()
+
+async def start_main_app():
+    global main_app_server
+    logging.info("启动主应用...")
+    config = Config("main_app:app", host="0.0.0.0", port=8000, reload=True)
+    main_app_server = Server(config)
+    await main_app_server.serve()
 
 def check_database_connection():
     try:
-        create_db_and_tables()
+        create_db_and_tables()  # 确保该函数已定义并导入
         return True
     except Exception as e:
-        print(f"Database connection error: {e}")
+        logging.error(f"数据库连接错误: {e}")
         return False
 
-def start_main_app():
-    # 启动 main_app
-    print("Starting main app...")
-    process = subprocess.Popen(["uvicorn", "main_app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"], cwd="D:\\Yida\\code\\python\\backend")
-    print(f"Main app started with PID: {process.pid}")
-    return process
-
-def start_fallback_app():
-    # 启动 fallback_app
-    print("Starting fallback app...")
-    process = subprocess.Popen(["uvicorn", "fallback_app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"], cwd="D:\\Yida\\code\\python\\backend")
-    print(f"Fallback app started with PID: {process.pid}")
-    return process
-
-def stop_process(process):
-    if process:
-        # 获取进程 ID
-        pid = process.pid
-        print(f"Stopping process with PID: {pid}")
-        try:
-            # 使用 psutil 获取进程树并终止所有子进程
-            parent = psutil.Process(pid)
-            children = parent.children(recursive=True)
-            for child in children:
-                print(f"Stopping child process with PID: {child.pid}")
-                child.terminate()
-            # 终止父进程
-            print(f"Stopping parent process with PID: {pid}")
-            parent.terminate()
-            # 等待进程结束，最多等待 5 秒
-            parent.wait(timeout=5)
-            print(f"Process with PID: {pid} stopped successfully.")
-        except psutil.NoSuchProcess:
-            print(f"Process {pid} does not exist.")
-        except subprocess.TimeoutExpired:
-            print(f"Process {pid} did not terminate in time. Killing it.")
-            parent.kill()
-            parent.wait()
-            print(f"Process with PID: {pid} killed.")
-
-def main():
-    current_process = None
+async def main():
+    global main_app_server, fallback_app_server, main_app_task, fallback_app_task
     while True:
         if check_database_connection():
-            if current_process is None or current_process.poll() is not None:
-                print("Database connected. Starting main app...")
-                if current_process:
-                    stop_process(current_process)  # 停止 fallback_app
-                current_process = start_main_app()  # 启动 main_app
+            if main_app_task is None or main_app_task.done():
+                logging.info("数据库已连接，启动主应用...")
+                if fallback_app_task and not fallback_app_task.done():
+                    await stop_server(fallback_app_server)
+                    fallback_app_task = None
+                try:
+                    main_app_task = asyncio.create_task(start_main_app())
+                except Exception as e:
+                    logging.error(f"启动主应用失败: {e}")
             else:
-                print("Main app is already running.")
+                logging.info("主应用已在运行。")
         else:
-            if current_process is None or current_process.poll() is not None:
-                print("Database not connected. Starting fallback app...")
-                if current_process:
-                    stop_process(current_process)  # 停止 main_app
-                current_process = start_fallback_app()  # 启动 fallback_app
+            if fallback_app_task is None or fallback_app_task.done():
+                logging.info("数据库未连接，启动回退应用...")
+                if main_app_task and not main_app_task.done():
+                    await stop_server(main_app_server)
+                    main_app_task = None
+                try:
+                    fallback_app_task = asyncio.create_task(start_fallback_app())
+                except Exception as e:
+                    logging.error(f"启动回退应用失败: {e}")
             else:
-                print("Fallback app is already running.")
-        time.sleep(30)  # 每5分钟检查一次
+                logging.info("回退应用已在运行。")
+        await asyncio.sleep(30)  # 每30秒检查一次
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
