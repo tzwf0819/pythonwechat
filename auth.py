@@ -13,10 +13,25 @@ from sqlalchemy import Column, NVARCHAR
 
 from database import engine, get_session
 from fastapi import BackgroundTasks
+from fastapi_limiter import FastAPILimiter
+from fastapi_limiter.depends import RateLimiter
+import redis 
+import requests
+
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+import base64
+import json
+
+from fastapi import Request  # 请求对象
+from starlette.types import ASGIApp  # 如果需要 ASGI 类型注解
 
 SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+
+
 
 class Token(BaseModel):
     access_token: str
@@ -32,6 +47,10 @@ class User(SQLModel, table=True):
     full_name: str | None = Field(default=None)
     disabled: bool = Field(default=False)
     hashed_password: str
+    wechat_openid: str | None = Field(default=None, index=True, unique=True)
+    wechat_session_key: str | None = Field(default=None)
+    last_login: datetime | None = Field(default=None)
+    login_ip: str | None = Field(default=None)
 
 class UserInDB(User):
     pass
@@ -105,7 +124,7 @@ async def get_current_active_user(
 
 app = FastAPI()
 
-@app.post("/token", response_model=Token)
+@app.post("/token", response_model=Token, dependencies=[Depends(RateLimiter(times=5, seconds=60))])
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Annotated[Session, Depends(get_session)]
@@ -177,3 +196,107 @@ async def forgot_password(request: ForgotPasswordRequest, session: Annotated[Ses
     session.add(user)
     session.commit()
     
+
+class WechatLoginRequest(BaseModel):
+    code: str
+    encrypted_data: str | None = None
+    iv: str | None = None
+
+# 微信登录路由
+@app.post("/auth/wechat-login")
+async def wechat_login(
+    request: WechatLoginRequest,
+    session: Annotated[Session, Depends(get_session)],
+    client_ip: str = Depends(lambda x: x.client.host)
+):
+    # 获取微信session_key和openid
+    wx_url = f"https://api.weixin.qq.com/sns/jscode2session?appid=wx0086226fe72e283b&secret=158ea10c0a06fba670532797d9f974f1&js_code={request.code}&grant_type=authorization_code"
+    wx_res = requests.get(wx_url, timeout=10)
+    wx_data = wx_res.json()
+    
+    if 'errcode' in wx_data:
+        raise HTTPException(status_code=400, detail=wx_data['errmsg'])
+    
+    # 查找或创建用户
+    user = session.exec(select(User).where(User.wechat_openid == wx_data['openid'])).first()
+    if not user:
+        user = User(
+            wechat_openid=wx_data['openid'],
+            wechat_session_key=wx_data['session_key'],
+            username=f"wx_{wx_data['openid'][-8:]}",
+            disabled=False
+        )
+        session.add(user)
+    else:
+        user.wechat_session_key = wx_data['session_key']
+    
+    # 更新登录信息
+    user.last_login = datetime.now(timezone.utc)
+    user.login_ip = client_ip
+    session.commit()
+    
+    # 生成JWT
+    access_token = create_access_token(
+        data={"sub": user.username},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    
+    # 解密用户信息（如果需要）
+    if request.encrypted_data and request.iv:
+        try:
+            user_info = decrypt_wechat_info(
+                request.encrypted_data,
+                request.iv,
+                wx_data['session_key']
+            )
+            user.full_name = user_info.get('nickName')
+            user.email = user_info.get('email')
+            session.commit()
+        except Exception as e:
+            print(f"解密失败: {str(e)}")
+    
+    return Token(access_token=access_token, token_type="bearer")
+# 微信信息解密函数
+def decrypt_wechat_info(encrypted_data: str, iv: str, session_key: str) -> dict:
+    cipher = Cipher(
+        algorithms.AES(base64.b64decode(session_key)),
+        modes.CBC(base64.b64decode(iv)),
+        backend=default_backend()
+    )
+    decryptor = cipher.decryptor()
+    decrypted = decryptor.update(base64.b64decode(encrypted_data)) + decryptor.finalize()
+    pad = decrypted[-1]
+    content = decrypted[:-pad].decode('utf-8')
+    return json.loads(content)
+
+# 增强安全中间件（在app实例后添加）
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    return response
+
+# 补充Swagger文档描述
+app.description = """
+## Authentication API
+
+### 功能说明：
+- 标准用户名密码登录
+- 微信小程序登录集成
+- JWT令牌管理
+- 密码安全重置流程
+
+### 安全要求：
+- 所有敏感请求必须使用HTTPS
+- 密码字段传输前需要前端进行SHA256哈希
+- JWT令牌有效期30分钟
+"""
+
+
+@app.on_event("startup")
+async def startup():
+    FastAPILimiter.init(redis.Redis.from_url("redis://localhost"))  # 修正后
+
+
