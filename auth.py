@@ -17,17 +17,22 @@ from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
 import redis 
 import requests
-
+import os
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 import base64
 import json
 
-from fastapi import Request  # 请求对象
-from starlette.types import ASGIApp  # 如果需要 ASGI 类型注解
+# 获取 JWT 配置
+SECRET_KEY = os.environ.get("SECRET_KEY")
+ALGORITHM = os.environ.get("ALGORITHM")
 
-SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
-ALGORITHM = "HS256"
+# 获取 API 配置
+
+# 获取微信登录配置
+WECHAT_APP_ID = os.environ.get("WECHAT_APP_ID")
+WECHAT_APP_SECRET = os.environ.get("WECHAT_APP_SECRET")
+
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
@@ -210,7 +215,7 @@ async def wechat_login(
     client_ip: str = Depends(lambda x: x.client.host)
 ):
     # 获取微信session_key和openid
-    wx_url = f"https://api.weixin.qq.com/sns/jscode2session?appid=wx0086226fe72e283b&secret=158ea10c0a06fba670532797d9f974f1&js_code={request.code}&grant_type=authorization_code"
+    wx_url = f"https://api.weixin.qq.com/sns/jscode2session?appid={WECHAT_APP_ID}&secret={WECHAT_APP_SECRET}&js_code={request.code}&grant_type=authorization_code" 
     wx_res = requests.get(wx_url, timeout=10)
     wx_data = wx_res.json()
     

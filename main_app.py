@@ -21,12 +21,12 @@ import uuid
 import asyncio
 
 
-ak = "DYFIHWVRWEP8OCHJKRD0"  # 替换为你的 AK
-sk = "yG9DwZDAbpINWZd1aoZqhrBjFjLj7WHdqfqe5z3k"  # 替换为你的 SK
-server  = "https://obs.cn-north-4.myhuaweicloud.com"  # 替换为你的 endpoint
-bucket_name = 'yida-wechat'
+OBS_AK = os.environ.get("OBS_AK")
+OBS_SK = os.environ.get("OBS_SK")
+OBS_SERVER = os.environ.get("OBS_SERVER")
+OBS_BUCKET_NAME = os.environ.get("OBS_BUCKET_NAME")
   # 替换为你的实际 bucket 名称
-obs_client = ObsClient(access_key_id=ak, secret_access_key=sk, server=server)
+obs_client = ObsClient(access_key_id=OBS_AK, secret_access_key=OBS_SK, server=OBS_SERVER)
 
 
 
@@ -241,7 +241,7 @@ async def upload_image(file: UploadFile = File(...)):
         # 上传文件的自定义元数据
         metadata = {'meta1': 'value1', 'meta2': 'value2'}
         # 文件上传
-        resp = obs_client.putFile(bucket_name, object_key, temp_file_path, metadata, headers)
+        resp = obs_client.putFile(OBS_BUCKET_NAME, object_key, temp_file_path, metadata, headers)
         
         # 删除临时文件
         os.remove(temp_file_path)
@@ -254,7 +254,7 @@ async def upload_image(file: UploadFile = File(...)):
             print('versionId:', resp.body.versionId)
             print('storageClass:', resp.body.storageClass)
             # 构建图片URL
-            image_url = f"https://{bucket_name}.obs.cn-north-4.myhuaweicloud.com/{object_key}"
+            image_url = f"https://{OBS_BUCKET_NAME}.obs.cn-north-4.myhuaweicloud.com/{object_key}"
             return {"image_url": image_url}
         else:
             print('Put File Failed')

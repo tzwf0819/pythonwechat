@@ -2,8 +2,14 @@ from sqlmodel import create_engine, SQLModel, Session, select
 from list_models import ListItem
 import os
 
+DATABASE_USER = os.environ.get("DATABASE_USER")
+DATABASE_PASSWORD = os.environ.get("DATABASE_PASSWORD")
+DATABASE_HOST = os.environ.get("DATABASE_HOST")
+DATABASE_PORT = os.environ.get("DATABASE_PORT")
+DATABASE_NAME = os.environ.get("DATABASE_NAME")
+
 # MSSQL数据库连接字符串
-mssql_url = "mssql+pyodbc://sa:shaoyansa@localhost:1433/yida?driver=ODBC+Driver+17+for+SQL+Server"
+mssql_url = f"mssql+pyodbc://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}?driver=ODBC+Driver+17+for+SQL+Server"
 #mssql_url = "mssql+pyodbc://sa:ABCabc123@150.158.136.4:1433/yida?driver=ODBC+Driver+17+for+SQL+Server"
 engine = create_engine(mssql_url, echo=True)
 
