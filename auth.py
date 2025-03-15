@@ -22,7 +22,9 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 import base64
 import json
-
+from fastapi import Request
+from dotenv import load_dotenv
+load_dotenv()
 # 获取 JWT 配置
 SECRET_KEY = os.environ.get("SECRET_KEY")
 ALGORITHM = os.environ.get("ALGORITHM")

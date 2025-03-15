@@ -20,14 +20,14 @@ async def stop_server(server):
 async def start_fallback_app():
     global fallback_app_server
     logging.info("启动回退应用...")
-    config = Config("fallback_app:app", host="0.0.0.0", port=8000, reload=True)
+    config = Config("fallback_app:app", host="0.0.0.0", port=8080, reload=True)
     fallback_app_server = Server(config)
     await fallback_app_server.serve()
 
 async def start_main_app():
     global main_app_server
     logging.info("启动主应用...")
-    config = Config("main_app:app", host="0.0.0.0", port=8000, reload=True)
+    config = Config("main_app:app", host="0.0.0.0", port=8080, reload=True)
     main_app_server = Server(config)
     await main_app_server.serve()
 

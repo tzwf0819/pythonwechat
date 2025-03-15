@@ -1,7 +1,8 @@
 from sqlmodel import create_engine, SQLModel, Session, select
 from list_models import ListItem
 import os
-
+from dotenv import load_dotenv
+load_dotenv()
 DATABASE_USER = os.environ.get("DATABASE_USER")
 DATABASE_PASSWORD = os.environ.get("DATABASE_PASSWORD")
 DATABASE_HOST = os.environ.get("DATABASE_HOST")

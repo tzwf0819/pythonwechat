@@ -19,7 +19,8 @@ import os
 import traceback
 import uuid
 import asyncio
-
+from dotenv import load_dotenv
+load_dotenv()
 
 OBS_AK = os.environ.get("OBS_AK")
 OBS_SK = os.environ.get("OBS_SK")
