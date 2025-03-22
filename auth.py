@@ -24,6 +24,8 @@ import base64
 import json
 from fastapi import Request
 from dotenv import load_dotenv
+import sqlalchemy
+
 load_dotenv()
 # 获取 JWT 配置
 SECRET_KEY = os.environ.get("SECRET_KEY")
@@ -40,6 +42,11 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
 
+print(f"SECRET_KEY: {SECRET_KEY}")
+print(f"ALGORITHM: {ALGORITHM}")
+print(f"WECHAT_APP_ID: {WECHAT_APP_ID}")
+print(f"WECHAT_APP_SECRET: {WECHAT_APP_SECRET}")
+
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -54,7 +61,8 @@ class User(SQLModel, table=True):
     full_name: str | None = Field(default=None)
     disabled: bool = Field(default=False)
     hashed_password: str
-    wechat_openid: str | None = Field(default=None, index=True, unique=True)
+    # 修改为直接指定类型
+    wechat_openid: str = Field(sa_column=Column(sqlalchemy.String(255)))
     wechat_session_key: str | None = Field(default=None)
     last_login: datetime | None = Field(default=None)
     login_ip: str | None = Field(default=None)
@@ -131,23 +139,35 @@ async def get_current_active_user(
 
 app = FastAPI()
 
+@app.on_event("startup")
+async def startup():
+   FastAPILimiter.init(redis.Redis.from_url("redis://127.0.0.1"))  # 确保Redis正在运行
+
+
+
 @app.post("/token", response_model=Token, dependencies=[Depends(RateLimiter(times=5, seconds=60))])
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Annotated[Session, Depends(get_session)]
 ):
-    user = authenticate_user(session, form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+    try:
+        user = authenticate_user(session, form_data.username, form_data.password)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": user.username}, expires_delta=access_token_expires
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-    return Token(access_token=access_token, token_type="bearer")
+        return Token(access_token=access_token, token_type="bearer")
+    except Exception as e:
+        # 记录详细的错误消息
+        import logging
+        logging.error(f"Error in login_for_access_token: {e}", exc_info=True)
+        raise
 
 @app.post("/users/", response_model=User)
 async def create_user(user: UserCreate, session: Annotated[Session, Depends(get_session)]):
@@ -302,8 +322,5 @@ app.description = """
 """
 
 
-@app.on_event("startup")
-async def startup():
-    FastAPILimiter.init(redis.Redis.from_url("redis://localhost"))  # 修正后
 
 

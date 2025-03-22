@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlmodel
+passlib
+python-jose[cryptography]
+python-dotenv
+redis
+requests
+cryptography
+fastapi-limiter
+esdk-obs-python

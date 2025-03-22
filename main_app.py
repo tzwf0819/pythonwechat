@@ -30,7 +30,6 @@ OBS_BUCKET_NAME = os.environ.get("OBS_BUCKET_NAME")
 obs_client = ObsClient(access_key_id=OBS_AK, secret_access_key=OBS_SK, server=OBS_SERVER)
 
 
-
 app = FastAPI()
 
 
