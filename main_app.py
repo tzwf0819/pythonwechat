@@ -6,9 +6,8 @@ from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
 from typing import List
-from database import create_db_and_tables ,get_session   # 假设你在database.py中定义了这个函数
-from auth import app as auth_app  # 导入auth.py中的app
-from fastapi import Depends
+from database import create_db_and_tables, get_session
+from auth import app as auth_app
 from list_models import ListItem
 from sqlmodel import Session, create_engine, select
 from models import ProductCategory, Product
@@ -20,46 +19,17 @@ import traceback
 import uuid
 import asyncio
 from dotenv import load_dotenv
+from fastapi_limiter import FastAPILimiter
+import redis
+from contextlib import asynccontextmanager
+
 load_dotenv()
 
 OBS_AK = os.environ.get("OBS_AK")
 OBS_SK = os.environ.get("OBS_SK")
 OBS_SERVER = os.environ.get("OBS_SERVER")
 OBS_BUCKET_NAME = os.environ.get("OBS_BUCKET_NAME")
-  # 替换为你的实际 bucket 名称
 obs_client = ObsClient(access_key_id=OBS_AK, secret_access_key=OBS_SK, server=OBS_SERVER)
-
-
-app = FastAPI()
-
-
-# 允许所有来源访问后端
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.on_event("startup")
-async def on_startup():
-    create_db_and_tables()
-
-# 挂载 auth_app 到 /auth 路径
-app.mount("/auth", auth_app)
-
-# 提供静态文件
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-app.add_middleware(GZipMiddleware, minimum_size=1000)
-
-
-
-templates = Jinja2Templates(directory="static")
-
-# 全局变量，用于存储数据库连接状态
-database_connected = True
 
 # 全局变量，用于存储数据库连接状态
 database_connected = True
@@ -80,16 +50,57 @@ async def monitor_database_connection():
         if not check_database_connection():
             print("Database connection lost. Exiting main app...")
             database_connected = False
-            sys.exit(1)  # 退出 main_app
+            # 这里建议用更优雅的方式停止应用，而不是直接退出
+            # sys.exit(1)  
         await asyncio.sleep(300)  # 每5分钟检查一次
 
-@app.on_event("startup")
-async def on_startup():
-    if not check_database_connection():
-        print("Failed to connect to the database. Exiting main app...")
-        sys.exit(1)  # 退出 main_app
-    # 启动后台任务
-    asyncio.create_task(monitor_database_connection())
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动事件
+    try:
+        # 检查数据库连接
+        if not check_database_connection():
+            print("Failed to connect to the database. Exiting main app...")
+            # 这里建议用更优雅的方式停止应用，而不是直接退出
+            # sys.exit(1)  
+        # 启动后台任务
+        asyncio.create_task(monitor_database_connection())
+        # 删除 FastAPILimiter 初始化相关代码
+        print("应用启动，资源初始化完成")
+    except Exception as e:
+        print(f"应用启动时出错: {e}")
+    yield
+    # 关闭事件
+    try:
+        print("应用关闭，开始清理资源")
+        # 这里可以添加应用关闭时需要执行的代码，如关闭数据库连接等
+        print("资源清理完成")
+    except Exception as e:
+        print(f"应用关闭时出错: {e}")
+
+app = FastAPI(lifespan=lifespan)
+
+# 允许所有来源访问后端
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 挂载 auth_app 到 /auth 路径
+print("Before mounting auth_app！！！！！！！！！！！")
+app.mount("/auth", auth_app)
+print("After mounting auth_app！！！！！！！！！！！！！")
+# 提供静态文件
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+templates = Jinja2Templates(directory="static")
 
 @app.get("/")
 async def read_root(request: Request):
@@ -119,8 +130,6 @@ def home(request: Request):
 def home(request: Request):
     return templates.TemplateResponse("product_management.html", {"request": request})
 
-
-
 @app.get("/items/")
 def read_items(session: Session = Depends(get_session)):
     items = session.exec(select(ListItem)).all()
@@ -138,7 +147,6 @@ def create_category(category: ProductCategory, session: Session = Depends(get_se
 def read_categories(session: Session = Depends(get_session)):
     categories = session.exec(select(ProductCategory)).all()
     return categories
-
 
 @app.get("/categories/{category_id}", response_model=ProductCategory)
 def read_category(category_id: int, session: Session = Depends(get_session)):
@@ -175,7 +183,7 @@ def create_product(product: Product, session: Session = Depends(get_session)):
     category = session.get(ProductCategory, product.product_category_id)
     if not category:
         raise HTTPException(status_code=404, detail=f"Category with ID {product.product_category_id} not found")
-    
+
     session.add(product)
     session.commit()
     session.refresh(product)
@@ -201,12 +209,12 @@ def update_product(product_id: int, product_update: Product, session: Session = 
     db_product = session.get(Product, product_id)
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
-    
+
     # 更新字段
     product_data = product_update.dict(exclude_unset=True)
     for key, value in product_data.items():
         setattr(db_product, key, value)
-    
+
     session.commit()
     session.refresh(db_product)
     return db_product
@@ -217,7 +225,7 @@ def delete_product(product_id: int, session: Session = Depends(get_session)):
     product = session.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    
+
     session.delete(product)
     session.commit()
     return {"message": "Product deleted successfully"}
@@ -230,7 +238,7 @@ async def upload_image(file: UploadFile = File(...)):
             temp_file_path = temp_file.name
             content = await file.read()
             temp_file.write(content)
-        
+
         # 上传对象的附加头域
         headers = PutObjectHeader()
         # 【可选】待上传对象的MIME类型
@@ -242,10 +250,10 @@ async def upload_image(file: UploadFile = File(...)):
         metadata = {'meta1': 'value1', 'meta2': 'value2'}
         # 文件上传
         resp = obs_client.putFile(OBS_BUCKET_NAME, object_key, temp_file_path, metadata, headers)
-        
+
         # 删除临时文件
         os.remove(temp_file_path)
-        
+
         # 返回码为2xx时，接口调用成功，否则接口调用失败
         if resp.status < 300:
             print('Put File Succeeded')
@@ -266,5 +274,3 @@ async def upload_image(file: UploadFile = File(...)):
         print('Put File Failed')
         print(traceback.format_exc())
         return {"error": str(e)}
-    
-

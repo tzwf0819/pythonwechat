@@ -1,8 +1,9 @@
 import logging
 import asyncio
 from uvicorn import Server, Config
-from database import create_db_and_tables  # 确保导入 create_db_and_tables
+from database import create_db_and_tables
 
+# 配置日志记录
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # 全局变量，用于存储 Server 实例和任务
@@ -12,34 +13,53 @@ main_app_task = None
 fallback_app_task = None
 
 async def stop_server(server):
+    """
+    停止指定的服务器实例。
+
+    :param server: 要停止的服务器实例
+    """
     if server:
         logging.info("正在停止服务器...")
         await server.shutdown()
         logging.info("服务器已停止。")
 
 async def start_fallback_app():
+    """
+    启动回退应用服务器。
+    """
     global fallback_app_server
     logging.info("启动回退应用...")
-    config = Config("fallback_app:app", host="0.0.0.0", port=8080, reload=True)
+    config = Config("fallback_app:app", host="0.0.0.0", port=8000, reload=True)
     fallback_app_server = Server(config)
     await fallback_app_server.serve()
 
 async def start_main_app():
+    """
+    启动主应用服务器。
+    """
     global main_app_server
     logging.info("启动主应用...")
-    config = Config("main_app:app", host="0.0.0.0", port=8080, reload=True)
+    config = Config("main_app:app", host="0.0.0.0", port=8000, reload=True)
     main_app_server = Server(config)
     await main_app_server.serve()
 
 def check_database_connection():
+    """
+    检查数据库连接是否正常。
+
+    :return: 如果数据库连接成功返回 True，否则返回 False
+    """
     try:
-        create_db_and_tables()  # 确保该函数已定义并导入
+        create_db_and_tables()
         return True
     except Exception as e:
         logging.error(f"数据库连接错误: {e}")
         return False
 
 async def main():
+    """
+    主函数，循环检查数据库连接并启动相应的应用。
+    """
     global main_app_server, fallback_app_server, main_app_task, fallback_app_task
     while True:
         if check_database_connection():
