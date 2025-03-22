@@ -19,7 +19,6 @@ import traceback
 import uuid
 import asyncio
 from dotenv import load_dotenv
-from fastapi_limiter import FastAPILimiter
 import redis
 from contextlib import asynccontextmanager
 

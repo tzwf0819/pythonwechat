@@ -16,8 +16,6 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlmodel import SQLModel, Field, Session, select
 from sqlalchemy import Column, NVARCHAR
-from fastapi_limiter import FastAPILimiter
-from fastapi_limiter.depends import RateLimiter
 from redis import asyncio as aioredis
 import requests
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -185,8 +183,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 路由定义
-@app.post("/token", response_model=Token, dependencies=[Depends(RateLimiter(times=5, seconds=60))])
+@app.post("/token", response_model=Token)
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     session: Session = Depends(get_session)
@@ -200,7 +197,7 @@ async def login_for_access_token(
                 detail="Incorrect username or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token_expires = timedelta(minutes=30)
         access_token = create_access_token(
             data={"sub": user.username}, expires_delta=access_token_expires
         )
@@ -211,6 +208,7 @@ async def login_for_access_token(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal Server Error: {str(e)}"
         )
+
 
 @app.post("/users/", response_model=User)
 async def create_user(user: UserCreate, session: Session = Depends(get_session)):
@@ -248,7 +246,7 @@ async def read_own_items(
 @app.get("/")
 async def root():
     """根路由，重定向到主页"""
-    return RedirectResponse(url="/static/home.html")
+    return RedirectResponse(url="/home")
 
 @app.post("/forgot-password")
 async def forgot_password(request: ForgotPasswordRequest, session: Session = Depends(get_session)):
