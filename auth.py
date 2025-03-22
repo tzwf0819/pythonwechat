@@ -18,7 +18,7 @@ from sqlmodel import SQLModel, Field, Session, select
 from sqlalchemy import Column, NVARCHAR
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
-import redis
+from redis import asyncio as aioredis
 import requests
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
@@ -28,6 +28,9 @@ import logging
 # 项目内部模块导入
 from database import engine, get_session
 import asyncio
+from contextlib import asynccontextmanager
+
+
 # 配置日志
 logging.basicConfig(level=logging.DEBUG)
 
@@ -168,37 +171,12 @@ async def get_current_active_user(
 # FastAPI 应用实例
 
 
-from contextlib import asynccontextmanager
-# 使用 lifespan 上下文管理器替代 startup 事件
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    try:
-        print("auth_app 的 lifespan 启动事件开始")
-        redis_client = redis.from_url("redis://127.0.0.1")
-        print(f"Redis client type: {type(redis_client)}")  # 添加调试信息
-        print("Before FastAPILimiter.init")
-        try:
-            await FastAPILimiter.init(redis_client)
-        except Exception as e:
-            print(f"FastAPILimiter 初始化失败: {e}")
-            raise  # 重新抛出异常，以便外部捕获
-        print("After FastAPILimiter.init")
-        print("FastAPILimiter 初始化完成")
-        yield
-    except Exception as e:
-        print(f"auth_app 的 lifespan 启动事件出错: {e}")
-    finally:
-        try:
-            if hasattr(FastAPILimiter, 'redis') and FastAPILimiter.redis is not None:
-                await FastAPILimiter.redis.close()
-                await FastAPILimiter.redis.wait_closed()
-                print("Redis 连接已关闭")
-        except Exception as e:
-            print(f"关闭 Redis 连接时出错: {e}")
-        print("auth_app 的 lifespan 关闭事件完成")
 
-app = FastAPI(lifespan=lifespan)
 
+
+app = FastAPI()
+
+# 跨域请求处理
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
