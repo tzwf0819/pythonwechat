@@ -10,6 +10,7 @@ import jwt
 from fastapi import Depends, FastAPI, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
 from pydantic import BaseModel
@@ -174,6 +175,7 @@ async def lifespan(app: FastAPI):
     try:
         print("auth_app 的 lifespan 启动事件开始")
         redis_client = redis.from_url("redis://127.0.0.1")
+        print(f"Redis client type: {type(redis_client)}")  # 添加调试信息
         print("Before FastAPILimiter.init")
         try:
             await FastAPILimiter.init(redis_client)
@@ -187,7 +189,7 @@ async def lifespan(app: FastAPI):
         print(f"auth_app 的 lifespan 启动事件出错: {e}")
     finally:
         try:
-            if hasattr(FastAPILimiter, 'redis'):
+            if hasattr(FastAPILimiter, 'redis') and FastAPILimiter.redis is not None:
                 await FastAPILimiter.redis.close()
                 await FastAPILimiter.redis.wait_closed()
                 print("Redis 连接已关闭")
@@ -195,9 +197,15 @@ async def lifespan(app: FastAPI):
             print(f"关闭 Redis 连接时出错: {e}")
         print("auth_app 的 lifespan 关闭事件完成")
 
-
 app = FastAPI(lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # 路由定义
 @app.post("/token", response_model=Token, dependencies=[Depends(RateLimiter(times=5, seconds=60))])

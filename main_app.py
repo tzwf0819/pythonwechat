@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
-from fastapi import Request
+from fastapi import Request, Response
 from typing import List
 from database import create_db_and_tables, get_session
 from auth import app as auth_app
@@ -91,10 +91,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # 挂载 auth_app 到 /auth 路径
-print("Before mounting auth_app！！！！！！！！！！！")
 app.mount("/auth", auth_app)
-print("After mounting auth_app！！！！！！！！！！！！！")
+
 # 提供静态文件
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
