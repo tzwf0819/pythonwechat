@@ -1,0 +1,7 @@
+<view class="container">
+  <button open-type="getUserInfo" bindgetuserinfo="bindGetUserInfo">一键登录</button>
+  <view wx:if="{{userInfo}}">
+    <image src="{{userInfo.avatarUrl}}" class="avatar"></image>
+    <text>欢迎, {{userInfo.nickName}}</text>
+  </view>
+</view>

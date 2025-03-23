@@ -261,13 +261,16 @@ async def forgot_password(request: ForgotPasswordRequest, session: Session = Dep
     session.commit()
     return {"message": "Password updated successfully"}
 
-@app.post("/auth/wechat-login")
+@app.post("/wechat-login")
 async def wechat_login(
     request: WechatLoginRequest,
     session: Session = Depends(get_session),
     client_ip: str = Depends(lambda x: x.client.host)
 ):
     """微信登录，返回访问令牌"""
+    print("Debug: session:", session)
+    print("Debug: request:", request)
+    print("Debug: client_ip:", client_ip)
     wx_url = f"https://api.weixin.qq.com/sns/jscode2session?appid={WECHAT_APP_ID}&secret={WECHAT_APP_SECRET}&js_code={request.code}&grant_type=authorization_code"
     wx_res = requests.get(wx_url, timeout=10)
     wx_data = wx_res.json()
@@ -323,6 +326,11 @@ def decrypt_wechat_info(encrypted_data: str, iv: str, session_key: str) -> dict:
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next):
     """添加安全响应头"""
+    logging.info(f"Received request: {request.method} {request.url}")
+    logging.info(f"Request headers: {request.headers}")
+    body = await request.body()
+    logging.info(f"Request body: {body.decode('utf-8')}")
+    
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
