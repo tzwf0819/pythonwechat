@@ -261,13 +261,16 @@ async def forgot_password(request: ForgotPasswordRequest, session: Session = Dep
     session.commit()
     return {"message": "Password updated successfully"}
 
+async def get_client_ip(request: Request) -> str:
+    return request.client.host
+
 @app.post("/wechat-login")
 async def wechat_login(
     request: WechatLoginRequest,
     session: Session = Depends(get_session),
-    client_ip: str = Depends(lambda x: x.client.host)
+    client_ip: str = Depends(get_client_ip)
 ):
-    """微信登录，返回访问令牌"""
+    """微信登录，返回访问令牌""" 
     print("Debug: session:", session)
     print("Debug: request:", request)
     print("Debug: client_ip:", client_ip)
@@ -278,11 +281,15 @@ async def wechat_login(
         raise HTTPException(status_code=400, detail=wx_data['errmsg'])
     user = session.exec(select(User).where(User.wechat_openid == wx_data['openid'])).first()
     if not user:
+        # 使用固定密码 123123 并进行哈希处理
+        default_password = "123123"
+        hashed_password = get_password_hash(default_password)
         user = User(
             wechat_openid=wx_data['openid'],
             wechat_session_key=wx_data['session_key'],
             username=f"wx_{wx_data['openid'][-8:]}",
-            disabled=False
+            disabled=False,
+            hashed_password=hashed_password  # 添加哈希密码
         )
         session.add(user)
     else:
