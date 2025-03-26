@@ -1,63 +1,79 @@
-// pages/login/login.js
+// wechat/pages/login/login.js
 Page({
   data: {
     userInfo: null
   },
 
   onLoad() {
-    // 页面加载时可以进行一些初始化操作
+    // Check if the user is already logged in
+    const accessToken = wx.getStorageSync('access_token');
+    if (accessToken) {
+      wx.navigateBack(); // Navigate back to the previous page if already logged in
+    }
   },
 
   bindGetUserInfo(e) {
-    if (e.detail.userInfo) {
-      this.setData({
-        userInfo: e.detail.userInfo
+    const userInfo = e.detail.userInfo;
+    if (userInfo) {
+      this.setData({ userInfo });
+
+      // Get the code from wx.login
+      wx.login({
+        success: (loginRes) => {
+          if (loginRes.code) {
+            // Send user info and code to backend
+            wx.request({
+              url: 'https://yidasoftware.xyz/wechat-login',
+              method: 'POST',
+              data: {
+                nickName: userInfo.nickName,
+                avatarUrl: userInfo.avatarUrl,
+                code: loginRes.code
+              },
+              success: (res) => {
+                if (res.statusCode === 200) {
+                  const { access_token } = res.data;
+                  wx.setStorageSync('access_token', access_token);
+                  wx.showToast({
+                    title: '登录成功',
+                    icon: 'success'
+                  });
+                  wx.navigateBack(); // Navigate back to the previous page
+                } else {
+                  wx.showToast({
+                    title: '登录失败',
+                    icon: 'none'
+                  });
+                }
+              },
+              fail: (error) => {
+                console.error('请求失败:', error);
+                wx.showToast({
+                  title: '请求失败',
+                  icon: 'none'
+                });
+              }
+            });
+          } else {
+            wx.showToast({
+              title: '获取登录码失败',
+              icon: 'none'
+            });
+          }
+        },
+        fail: (error) => {
+          console.error('wx.login failed:', error);
+          wx.showToast({
+            title: '登录失败',
+            icon: 'none'
+          });
+        }
       });
-      this.loginWithWechat(e.detail.encryptedData, e.detail.iv);
     } else {
       wx.showToast({
-        title: '您需要授权登录',
+        title: '获取用户信息失败',
         icon: 'none'
       });
     }
-  },
-
-  async loginWithWechat(encryptedData, iv) {
-    try {
-        const res = await wx.login();
-        if (res.code) {
-            const x = "your_x_value"; // 这里填入你需要的 x 的值
-            wx.request({
-                url: `https://yidasoftware.xyz/wechat-login?x=${x}`, // 添加 x 参数到 URL
-                method: 'POST',
-                data: {
-                    code: res.code,
-                    encrypted_data: encryptedData,
-                    iv: iv
-                },
-                header: {
-                    'content-type': 'application/json'
-                },
-                success: (response) => {
-                    if (response.statusCode === 200) {
-                        const { access_token } = response.data;
-                        // 保存 access_token 到本地存储
-                        wx.setStorageSync('access_token', access_token);
-                        // 登录成功后跳转到首页
-                        wx.switchTab({
-                            url: '/pages/index/index'
-                        });
-                    } else {
-                        console.error('微信登录失败:', response.data);
-                    }
-                },
-                fail: (error) => {
-                    console.error('请求失败:', error);
-                }
-            });
-        }
-    } catch (error) {
-        console.error('登录失败:', error);
-    }
-}
+  }
 });

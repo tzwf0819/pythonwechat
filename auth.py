@@ -69,6 +69,8 @@ class User(SQLModel, table=True):
     wechat_session_key: str | None = Field(default=None)
     last_login: datetime | None = Field(default=None)
     login_ip: str | None = Field(default=None)
+    # 添加 avatar_url 属性
+    avatar_url: str | None = Field(default=None)
 
 class UserInDB(User):
     """数据库中的用户数据模型"""
@@ -270,10 +272,8 @@ async def wechat_login(
     session: Session = Depends(get_session),
     client_ip: str = Depends(get_client_ip)
 ):
-    """微信登录，返回访问令牌""" 
-    print("Debug: session:", session)
-    print("Debug: request:", request)
-    print("Debug: client_ip:", client_ip)
+    """微信登录，返回访问令牌和用户信息""" 
+    print("Received request:", request)
     wx_url = f"https://api.weixin.qq.com/sns/jscode2session?appid={WECHAT_APP_ID}&secret={WECHAT_APP_SECRET}&js_code={request.code}&grant_type=authorization_code"
     wx_res = requests.get(wx_url, timeout=10)
     wx_data = wx_res.json()
@@ -288,6 +288,7 @@ async def wechat_login(
             wechat_openid=wx_data['openid'],
             wechat_session_key=wx_data['session_key'],
             username=f"wx_{wx_data['openid'][-8:]}",
+            full_name="默认用户名",  # 默认用户名
             disabled=False,
             hashed_password=hashed_password  # 添加哈希密码
         )
@@ -309,12 +310,19 @@ async def wechat_login(
                 wx_data['session_key']
             )
             user.full_name = user_info.get('nickName')
-            user.email = user_info.get('email')
+            # 如果微信返回的用户信息中有头像链接，更新到用户模型
+            user.avatar_url = user_info.get('avatarUrl')
             session.commit()
         except Exception as e:
             logging.error(f"Decryption failed: {e}", exc_info=True)
-    return Token(access_token=access_token, token_type="bearer")
-
+    # 返回用户信息
+    user_info = {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "full_name": user.full_name,
+        "avatar_url": user.avatar_url or "https://yida-wechat.obs.cn-north-4.myhuaweicloud.com/avatar/default.png"  # 默认头像链接
+    }
+    return user_info
 # 微信信息解密函数
 def decrypt_wechat_info(encrypted_data: str, iv: str, session_key: str) -> dict:
     """解密微信用户信息"""
@@ -327,6 +335,7 @@ def decrypt_wechat_info(encrypted_data: str, iv: str, session_key: str) -> dict:
     decrypted = decryptor.update(base64.b64decode(encrypted_data)) + decryptor.finalize()
     pad = decrypted[-1]
     content = decrypted[:-pad].decode('utf-8')
+    print(content)
     return json.loads(content)
 
 # 增强安全中间件
