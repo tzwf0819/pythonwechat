@@ -2,12 +2,12 @@
   "pages": [
     "pages/index/index",
     "pages/logs/logs",
-    "pages/login/login"
+    "pages/profile/profile"
   ],
   "window": {
-    "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "Weixin",
-    "navigationBarBackgroundColor": "#ffffff"
+    "navigationBarTitleText": "易达软件",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black"
   },
   "tabBar": {
     "list": [
@@ -20,16 +20,15 @@
         "text": "日志"
       },
       {
-        "pagePath": "pages/login/login",
-        "text": "登录"
+        "pagePath": "pages/profile/profile",
+        "text": "我的"
       }
-    ]
+    ],
+    "color": "#999999",
+    "selectedColor": "#07C160",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black"
   },
   "style": "v2",
-  "componentFramework": "glass-easel",
-  "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents",
-  "requiredPrivateInfos": [
-    "getLocation"
-  ]
+  "sitemapLocation": "sitemap.json"
 }

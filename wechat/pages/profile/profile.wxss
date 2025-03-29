@@ -1,0 +1,106 @@
+/* 页面基础样式 */
+.page {
+  min-height: 100vh;
+  background-color: #f7f7f7;
+  padding: 20rpx;
+}
+
+/* 登录区域 */
+.login-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+}
+
+.login-btn {
+  width: 80%;
+  height: 80rpx;
+  line-height: 80rpx;
+  background-color: #07C160;
+  color: white;
+  border-radius: 40rpx;
+  font-size: 32rpx;
+  margin-bottom: 20rpx;
+}
+
+.login-tip {
+  color: #999;
+  font-size: 28rpx;
+}
+
+/* 用户信息头部 */
+.user-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40rpx 0;
+}
+
+.avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  border: 2rpx solid #eee;
+}
+
+.nickname {
+  margin-top: 20rpx;
+  font-size: 36rpx;
+  font-weight: 500;
+}
+
+/* 表单样式 */
+.form-section {
+  background-color: white;
+  border-radius: 16rpx;
+  padding: 0 30rpx;
+  margin-top: 30rpx;
+}
+
+.form-item {
+  display: flex;
+  align-items: center;
+  padding: 30rpx 0;
+  border-bottom: 1rpx solid #eee;
+}
+
+.form-item:last-child {
+  border-bottom: none;
+}
+
+.label {
+  width: 150rpx;
+  font-size: 30rpx;
+  color: #333;
+}
+
+.input {
+  flex: 1;
+  font-size: 30rpx;
+  min-height: 40rpx;
+}
+
+.mini-btn {
+  font-size: 26rpx;
+  color: #07C160;
+  background: none;
+  border: 1rpx solid #07C160;
+  border-radius: 8rpx;
+  padding: 0 20rpx;
+  height: 60rpx;
+  line-height: 60rpx;
+  margin-left: 20rpx;
+}
+
+.submit-btn {
+  margin: 50rpx auto;
+  width: 80%;
+  background-color: #07C160;
+  color: white;
+  border-radius: 50rpx;
+  font-size: 32rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+}

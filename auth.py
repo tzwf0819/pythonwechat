@@ -71,7 +71,9 @@ class User(SQLModel, table=True):
     login_ip: str | None = Field(default=None)
     # 添加 avatar_url 属性
     avatar_url: str | None = Field(default=None)
-
+    phone: str | None = Field(default=None, sa_column=Column(NVARCHAR(20)))
+    address: str | None = Field(default=None, sa_column=Column(NVARCHAR(255)))
+    
 class UserInDB(User):
     """数据库中的用户数据模型"""
     pass
@@ -231,13 +233,69 @@ async def create_user(user: UserCreate, session: Session = Depends(get_session))
     return db_user
 
 @app.get("/users/me/", response_model=User)
-async def read_users_me(
+async def get_current_user_profile(
     current_user: User = Depends(get_current_active_user),
+    session: Session = Depends(get_session)
 ):
-    """获取当前用户信息"""
-    print("Debug: current_user:", current_user)
-    return current_user
+    """获取完整的用户资料"""
+    return {
+        "full_name": current_user.full_name,
+        "phone": current_user.phone,
+        "address": current_user.address,
+        "avatar_url": current_user.avatar_url,
+        "wechat_openid": current_user.wechat_openid
+    }
 
+# 更新资料接口
+@app.post("/update-profile")
+async def update_user_profile(
+    profile_data: dict,
+    current_user: User = Depends(get_current_active_user),
+    session: Session = Depends(get_session)
+):
+    """更新用户资料接口 - 调试版"""
+    try:
+        # 打印当前值
+        print(f"更新前用户数据 - full_name: {current_user.full_name}, phone: {current_user.phone}, address: {current_user.address}")
+        
+        # 强制更新所有字段
+        if 'nickName' in profile_data:
+            current_user.full_name = profile_data['nickName']
+            print(f"设置 full_name 为: {profile_data['nickName']}")
+        
+        if 'phone' in profile_data:
+            current_user.phone = profile_data['phone']
+        
+        if 'address' in profile_data:
+            current_user.address = profile_data['address']
+        
+        # 打印变更状态
+        print(f"ORM 检测到变更: {session.is_modified(current_user)}")
+        print(f"变更后的待提交状态: {current_user.__dict__}")
+        
+        session.add(current_user)
+        session.commit()
+        session.refresh(current_user)  # 强制刷新
+        
+        # 验证更新结果
+        print(f"更新后用户数据 - full_name: {current_user.full_name}, phone: {current_user.phone}, address: {current_user.address}")
+        
+        return {
+            "success": True,
+            "user_info": {
+                "nickName": current_user.full_name,
+                "phone": current_user.phone,
+                "address": current_user.address
+            }
+        }
+    except Exception as e:
+        session.rollback()
+        print(f"更新失败: {str(e)}")
+        return {
+            "success": False,
+            "message": str(e)
+        }
+    
 @app.get("/users/me/items/")
 async def read_own_items(
     current_user: User = Depends(get_current_active_user),
@@ -272,57 +330,76 @@ async def wechat_login(
     session: Session = Depends(get_session),
     client_ip: str = Depends(get_client_ip)
 ):
-    """微信登录，返回访问令牌和用户信息""" 
-    print("Received request:", request)
-    wx_url = f"https://api.weixin.qq.com/sns/jscode2session?appid={WECHAT_APP_ID}&secret={WECHAT_APP_SECRET}&js_code={request.code}&grant_type=authorization_code"
-    wx_res = requests.get(wx_url, timeout=10)
-    wx_data = wx_res.json()
-    if 'errcode' in wx_data:
-        raise HTTPException(status_code=400, detail=wx_data['errmsg'])
-    user = session.exec(select(User).where(User.wechat_openid == wx_data['openid'])).first()
-    if not user:
-        # 使用固定密码 123123 并进行哈希处理
-        default_password = "123123"
-        hashed_password = get_password_hash(default_password)
-        user = User(
-            wechat_openid=wx_data['openid'],
-            wechat_session_key=wx_data['session_key'],
-            username=f"wx_{wx_data['openid'][-8:]}",
-            full_name="默认用户名",  # 默认用户名
-            disabled=False,
-            hashed_password=hashed_password  # 添加哈希密码
-        )
-        session.add(user)
-    else:
-        user.wechat_session_key = wx_data['session_key']
-    user.last_login = datetime.now(timezone.utc)
-    user.login_ip = client_ip
-    session.commit()
-    access_token = create_access_token(
-        data={"sub": user.username},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    )
-    if request.encrypted_data and request.iv:
-        try:
-            user_info = decrypt_wechat_info(
-                request.encrypted_data,
-                request.iv,
-                wx_data['session_key']
+    """优化后的微信登录接口"""
+    try:
+        # 1. 获取微信session_key
+        wx_url = f"https://api.weixin.qq.com/sns/jscode2session?appid={WECHAT_APP_ID}&secret={WECHAT_APP_SECRET}&js_code={request.code}&grant_type=authorization_code"
+        wx_res = requests.get(wx_url, timeout=10)
+        wx_res.raise_for_status()
+        wx_data = wx_res.json()
+        
+        if 'errcode' in wx_data:
+            raise HTTPException(status_code=400, detail=wx_data['errmsg'])
+        
+        # 2. 处理用户数据
+        user = session.exec(select(User).where(User.wechat_openid == wx_data['openid'])).first()
+        is_new_user = False
+        
+        if not user:
+            default_password = get_password_hash("123123")
+            user = User(
+                wechat_openid=wx_data['openid'],
+                wechat_session_key=wx_data['session_key'],
+                username=f"wx_{wx_data['openid'][-8:]}",
+                full_name="微信用户",  # 临时默认值
+                disabled=False,
+                hashed_password=default_password
             )
-            user.full_name = user_info.get('nickName')
-            # 如果微信返回的用户信息中有头像链接，更新到用户模型
-            user.avatar_url = user_info.get('avatarUrl')
-            session.commit()
-        except Exception as e:
-            logging.error(f"Decryption failed: {e}", exc_info=True)
-    # 返回用户信息
-    user_info = {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "full_name": user.full_name,
-        "avatar_url": user.avatar_url or "https://yida-wechat.obs.cn-north-4.myhuaweicloud.com/avatar/default.png"  # 默认头像链接
-    }
-    return user_info
+            session.add(user)
+            is_new_user = True
+        
+        # 3. 更新用户信息
+        user.wechat_session_key = wx_data['session_key']
+        user.last_login = datetime.now(timezone.utc)
+        user.login_ip = client_ip
+        
+        # 4. 解密微信信息（如果有）
+        if request.encrypted_data and request.iv:
+            try:
+                user_info = decrypt_wechat_info(request.encrypted_data, request.iv, wx_data['session_key'])
+                user.full_name = user_info.get('nickName', user.full_name)
+                user.avatar_url = user_info.get('avatarUrl', user.avatar_url)
+            except Exception as e:
+                logging.error(f"微信信息解密失败: {e}")
+                if is_new_user:
+                    raise HTTPException(status_code=400, detail="首次登录需授权用户信息")
+        
+        session.commit()
+        
+        # 5. 生成令牌
+        access_token = create_access_token(
+            data={"sub": user.username},
+            expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        )
+        
+        return {
+            "code": 200,
+            "data": {
+                "access_token": access_token,
+                "token_type": "bearer",
+                "nickName": user.full_name,
+                "avatarUrl": user.avatar_url or "https://yida-wechat.obs.cn-north-4.myhuaweicloud.com/avatar/default.png"
+            },
+            "message": "登录成功"
+        }
+        
+    except requests.RequestException as e:
+        logging.error(f"微信API请求失败: {e}")
+        raise HTTPException(status_code=502, detail="微信服务暂时不可用")
+    except Exception as e:
+        logging.error(f"登录处理异常: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="服务器内部错误")
+    
 # 微信信息解密函数
 def decrypt_wechat_info(encrypted_data: str, iv: str, session_key: str) -> dict:
     """解密微信用户信息"""
