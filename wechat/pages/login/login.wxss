@@ -1,14 +1,37 @@
+/* 保持容器样式 */
 .container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100vh;
+  background-color: #f9f9f9; /* iPhone风格的浅色背景 */
 }
 
+/* 按钮样式调整 */
+button {
+  width: 80%;
+  height: 50px;
+  margin: 10px 0;
+  border-radius: 25px; /* 圆角按钮 */
+  background-color: #007aff; /* iPhone蓝色按钮 */
+  color: white;
+  font-size: 18px;
+  border: none;
+  outline: none;
+}
+
+/* 头像样式调整 */
 .avatar {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
+  width: 120px;
+  height: 120px;
+  border-radius: 60px; /* 圆形头像 */
   margin-bottom: 20px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* 头像阴影 */
+}
+
+/* 欢迎文本样式 */
+text {
+  font-size: 20px;
+  color: #333;
 }

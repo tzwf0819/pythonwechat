@@ -1,8 +1,10 @@
 <view class="container">
-  <button bindtap="getUserProfile">使用微信授权登录</button>
-  <button open-type="getUserInfo" bindgetuserinfo="bindGetUserInfo">一键登录</button>
+  <!-- 按钮样式调整 -->
+  <button bindtap="getUserProfile" class="login-btn">使用微信授权登录</button>
+  <button open-type="getUserInfo" bindgetuserinfo="bindGetUserInfo" class="login-btn">一键登录</button>
   
-  <view wx:if="{{userInfo}}">
+  <!-- 头像和欢迎文本 -->
+  <view wx:if="{{userInfo}}" class="avatar-section">
     <image src="{{userInfo.avatarUrl}}" class="avatar"></image>
     <text>欢迎, {{userInfo.nickName}}</text>
   </view>

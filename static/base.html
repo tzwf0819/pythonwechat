@@ -6,15 +6,26 @@
     <title>{% block title %}{% endblock %}</title>
     <link href="{{ url_for('static', path='/libs/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
+    <!-- 引入 Windows 风格的 CSS 变量 -->
+    <style>
+        :root {
+            --primary-color: #0078D4;
+            --secondary-color: #F3F2F1;
+            --text-color: #333;
+        }
+    </style>
 </head>
 <body>
-    <div class="header">易达软件小程序后端管理平台</div>
+    <!-- 修改 header 样式 -->
+    <div class="header" style="background-color: var(--primary-color); color: white; border-bottom: none;">
+        易达软件小程序后端管理平台
+    </div>
     <div class="container">
         {% block content %}{% endblock %}
     </div>
 
     <!-- 添加 ICP 备案信息底部栏 -->
-    <div class="footer">
+    <div class="footer" style="background-color: var(--secondary-color); color: var(--text-color); border-top: 1px solid #ccc;">
         <a href="https://beian.miit.gov.cn/" target="_blank" class="icp-link">
             <span class="icp-text">冀ICP备2025103215号-1</span>
         </a>

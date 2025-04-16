@@ -1,3 +1,48 @@
+/* 页面容器样式 */
+.page-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: #f9f9f9; /* iPhone 风格的浅色背景 */
+  padding: 20px;
+}
+
+/* 标题样式 */
+.title {
+  font-size: 24px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+/* 按钮样式 */
+.btn {
+  width: 80%;
+  height: 50px;
+  margin: 10px 0;
+  border-radius: 25px; /* 圆角按钮 */
+  background-color: #007aff; /* iPhone 蓝色按钮 */
+  color: white;
+  font-size: 18px;
+  border: none;
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 列表项样式 */
+.list-item {
+  width: 80%;
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: 10px;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 .login-section {
   display: flex;
   flex-direction: column;

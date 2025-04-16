@@ -1,6 +1,20 @@
 $(document).ready(function() {
     const apiUrl = 'http://127.0.0.1:8000';
 
+    // 新增：处理微信扫码登录回调
+    function handleWechatCallback() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const accessToken = urlParams.get('access_token');
+        
+        if (accessToken) {
+            localStorage.setItem('access_token', accessToken);
+            window.location.href = '/home';  // 清除URL参数
+        }
+    }
+
+    // 初始化时检查是否是回调
+    handleWechatCallback();
+
     $('#login-form').on('submit', async function(event) {
         event.preventDefault();
         const loginUsername = $('#login-username').val();

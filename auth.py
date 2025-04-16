@@ -44,6 +44,11 @@ ALGORITHM = os.environ.get("ALGORITHM")
 WECHAT_APP_ID = os.environ.get("WECHAT_APP_ID")
 WECHAT_APP_SECRET = os.environ.get("WECHAT_APP_SECRET")
 
+WECHATGZH_APP_ID = os.getenv("AppID")
+WECHATGZH_APP_SECRET = os.getenv("AppSecret")
+WECHATGZH_REDIRECT_URI = "https://jazz.yidasoftware.xyz/auth/wechat/callback"  # 替换为你的域名
+
+
 # 访问令牌过期时间（分钟）
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -445,3 +450,107 @@ app.description = """
 - 密码字段传输前需要前端进行 SHA256 哈希
 - JWT 令牌有效期 30 分钟
 """
+
+@app.get("/auth/wechat/qrcode")
+async def wechat_qrcode_login():
+    """生成微信公众号扫码登录链接"""
+    auth_url = (
+        f"https://open.weixin.qq.com/connect/oauth2/authorize"
+        f"?appid={WECHATGZH_APP_ID}"
+        f"&redirect_uri={WECHATGZH_REDIRECT_URI}"
+        f"&response_type=code"
+        f"&scope=snsapi_userinfo"  # 需要获取用户信息
+        f"&state=STATE_{os.urandom(8).hex()}"  # 防CSRF
+        f"#wechat_redirect"
+    )
+    return RedirectResponse(auth_url)
+
+@app.get("/wechat/callback")
+async def wechat_qrcode_callback(
+    code: str,
+    state: str,
+    session: Session = Depends(get_session),
+    request: Request = None
+):
+    """处理微信公众号扫码登录回调"""
+    try:
+        # 1. 用code换取access_token
+        token_url = (
+            f"https://api.weixin.qq.com/sns/oauth2/access_token"
+            f"?appid={WECHATGZH_APP_ID}"
+            f"&secret={WECHATGZH_APP_SECRET}"
+            f"&code={code}"
+            f"&grant_type=authorization_code"
+        )
+        token_res = requests.get(token_url)
+        token_res.raise_for_status()
+        token_data = token_res.json()
+
+        if 'errcode' in token_data:
+            raise HTTPException(
+                status_code=400,
+                detail=f"WeChat API error: {token_data.get('errmsg')}"
+            )
+
+        # 2. 获取用户信息
+        userinfo_url = (
+            f"https://api.weixin.qq.com/sns/userinfo"
+            f"?access_token={token_data['access_token']}"
+            f"&openid={token_data['openid']}"
+        )
+        userinfo_res = requests.get(userinfo_url)
+        userinfo_res.raise_for_status()
+        userinfo = userinfo_res.json()
+
+        # 3. 查找或创建用户
+        user = session.exec(
+            select(User).where(User.wechat_openid == token_data['openid'])
+        ).first()
+
+        if not user:
+            # 新用户自动生成用户名和密码
+            default_password = get_password_hash(os.urandom(16).hex())
+            user = User(
+                wechat_openid=token_data['openid'],
+                username=f"wxgzh_{token_data['openid'][-6:]}",
+                full_name=userinfo.get('nickname', '微信用户'),
+                avatar_url=userinfo.get('headimgurl'),
+                hashed_password=default_password
+            )
+            session.add(user)
+
+        # 更新用户信息
+        user.avatar_url = userinfo.get('headimgurl', user.avatar_url)
+        user.full_name = userinfo.get('nickname', user.full_name)
+        user.last_login = datetime.now(timezone.utc)
+        if request:
+            user.login_ip = request.client.host
+
+        session.commit()
+
+        # 4. 生成JWT令牌
+        access_token = create_access_token(
+            data={"sub": user.username},
+            expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        )
+
+        # 5. 重定向到前端带token
+        frontend_url = (
+            f"https://jazz.yidasoftware.xyz/login/callback"
+            f"?access_token={access_token}"
+            f"&token_type=bearer"
+        )
+        return RedirectResponse(url=frontend_url)
+
+    except requests.RequestException as e:
+        logging.error(f"WeChat API请求失败: {str(e)}")
+        raise HTTPException(
+            status_code=502,
+            detail="微信服务暂时不可用"
+        )
+    except Exception as e:
+        logging.error(f"扫码登录处理异常: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="服务器内部错误"
+        )

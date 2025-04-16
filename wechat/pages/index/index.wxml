@@ -1,6 +1,16 @@
-<view class="index-container">
-  <view class="welcome-section">
-    <text>欢迎使用易达软件</text>
+<view class="page-container">
+  <!-- 标题 -->
+  <text class="title">主页</text>
+  
+  <!-- 按钮 -->
+  <button class="btn">按钮 1</button>
+  <button class="btn">按钮 2</button>
+  
+  <!-- 列表项示例 -->
+  <view class="list-item">
+    <text>列表项 1</text>
   </view>
-  <!-- 移除原来的登录按钮 -->
+  <view class="list-item">
+    <text>列表项 2</text>
+  </view>
 </view>
