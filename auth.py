@@ -4,10 +4,12 @@ import os
 import logging
 import base64
 import json
-
+from fastapi.responses import HTMLResponse
+import qrcode
+from io import BytesIO
 # 第三方库导入
 import jwt
-from fastapi import Depends, FastAPI, HTTPException, status, Request
+from fastapi import Depends, FastAPI, HTTPException, status, Request, Response
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,7 +29,9 @@ import logging
 from database import engine, get_session
 import asyncio
 from contextlib import asynccontextmanager
-
+from fastapi import Query
+from fastapi.responses import PlainTextResponse
+import hashlib
 
 # 配置日志
 logging.basicConfig(level=logging.DEBUG)
@@ -46,7 +50,7 @@ WECHAT_APP_SECRET = os.environ.get("WECHAT_APP_SECRET")
 
 WECHATGZH_APP_ID = os.getenv("AppID")
 WECHATGZH_APP_SECRET = os.getenv("AppSecret")
-WECHATGZH_REDIRECT_URI = "https://jazz.yidasoftware.xyz/auth/wechat/callback"  # 替换为你的域名
+WECHATGZH_REDIRECT_URI = "https://www.yidasoftware.xyz/auth/wechat/callback"  # 替换为你的域名
 
 
 # 访问令牌过期时间（分钟）
@@ -450,107 +454,95 @@ app.description = """
 - 密码字段传输前需要前端进行 SHA256 哈希
 - JWT 令牌有效期 30 分钟
 """
+SCOPE = "snsapi_base" # 需要获取用户信息时使用
 
-@app.get("/auth/wechat/qrcode")
-async def wechat_qrcode_login():
-    """生成微信公众号扫码登录链接"""
+@app.get("/wechat/qrcode")
+async def generate_login_qrcode():
     auth_url = (
         f"https://open.weixin.qq.com/connect/oauth2/authorize"
         f"?appid={WECHATGZH_APP_ID}"
         f"&redirect_uri={WECHATGZH_REDIRECT_URI}"
         f"&response_type=code"
-        f"&scope=snsapi_userinfo"  # 需要获取用户信息
-        f"&state=STATE_{os.urandom(8).hex()}"  # 防CSRF
+        f"&scope={SCOPE}"
         f"#wechat_redirect"
     )
-    return RedirectResponse(auth_url)
+    # 生成二维码
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(auth_url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    # 将图片保存到内存
+    img_byte_arr = BytesIO()
+    img.save(img_byte_arr, format='PNG')
+    img_byte_arr = img_byte_arr.getvalue()
+
+    return Response(content=img_byte_arr, media_type="image/png")
 
 @app.get("/wechat/callback")
-async def wechat_qrcode_callback(
-    code: str,
-    state: str,
-    session: Session = Depends(get_session),
-    request: Request = None
+async def handle_wechat_callback(code: str):
+    token_url = (
+        f"https://api.weixin.qq.com/sns/oauth2/access_token"
+        f"?appid={WECHATGZH_APP_ID}"
+        f"&secret={WECHATGZH_REDIRECT_URI}"
+        f"&code={code}"
+        f"&grant_type=authorization_code"
+    )
+    response = requests.get(token_url)
+    result = response.json()
+    if 'openid' in result:
+        openid = result['openid']
+        # 这里可以添加数据库比对和新建用户的逻辑
+        # ...
+        return {"openid": openid}
+    else:
+        return {"error": "获取 openid 失败", "result": result}
+    
+@app.get("/wechat/verify")
+async def verify_wechat_server(
+    signature: str = Query(..., alias="signature"),
+    timestamp: str = Query(..., alias="timestamp"),
+    nonce: str = Query(..., alias="nonce"),
+    echostr: str = Query(..., alias="echostr")
 ):
-    """处理微信公众号扫码登录回调"""
-    try:
-        # 1. 用code换取access_token
-        token_url = (
-            f"https://api.weixin.qq.com/sns/oauth2/access_token"
-            f"?appid={WECHATGZH_APP_ID}"
-            f"&secret={WECHATGZH_APP_SECRET}"
-            f"&code={code}"
-            f"&grant_type=authorization_code"
+    """微信公众平台服务器验证接口"""
+    token = "JazzHiphop"  # 与公众号后台配置完全一致
+    
+    # 1. 参数排序
+    params = sorted([token, timestamp, nonce])
+    param_str = "".join(params)
+    
+    # 2. SHA1加密
+    hashcode = hashlib.sha1(param_str.encode()).hexdigest()
+    
+    # 调试日志（生产环境应移除）
+    print(f"验证参数 - token:{token}, 微信签名:{signature}")
+    print(f"生成签名: {hashcode} (输入字符串: '{param_str}')")
+    
+    # 3. 验证签名
+    if hashcode == signature:
+        return PlainTextResponse(content=echostr)
+    else:
+        return PlainTextResponse(
+            content=f"Signature verification failed\nLocal: {hashcode}\nWeChat: {signature}",
+            status_code=403
         )
-        token_res = requests.get(token_url)
-        token_res.raise_for_status()
-        token_data = token_res.json()
-
-        if 'errcode' in token_data:
-            raise HTTPException(
-                status_code=400,
-                detail=f"WeChat API error: {token_data.get('errmsg')}"
-            )
-
-        # 2. 获取用户信息
-        userinfo_url = (
-            f"https://api.weixin.qq.com/sns/userinfo"
-            f"?access_token={token_data['access_token']}"
-            f"&openid={token_data['openid']}"
-        )
-        userinfo_res = requests.get(userinfo_url)
-        userinfo_res.raise_for_status()
-        userinfo = userinfo_res.json()
-
-        # 3. 查找或创建用户
-        user = session.exec(
-            select(User).where(User.wechat_openid == token_data['openid'])
-        ).first()
-
-        if not user:
-            # 新用户自动生成用户名和密码
-            default_password = get_password_hash(os.urandom(16).hex())
-            user = User(
-                wechat_openid=token_data['openid'],
-                username=f"wxgzh_{token_data['openid'][-6:]}",
-                full_name=userinfo.get('nickname', '微信用户'),
-                avatar_url=userinfo.get('headimgurl'),
-                hashed_password=default_password
-            )
-            session.add(user)
-
-        # 更新用户信息
-        user.avatar_url = userinfo.get('headimgurl', user.avatar_url)
-        user.full_name = userinfo.get('nickname', user.full_name)
-        user.last_login = datetime.now(timezone.utc)
-        if request:
-            user.login_ip = request.client.host
-
-        session.commit()
-
-        # 4. 生成JWT令牌
-        access_token = create_access_token(
-            data={"sub": user.username},
-            expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        )
-
-        # 5. 重定向到前端带token
-        frontend_url = (
-            f"https://jazz.yidasoftware.xyz/login/callback"
-            f"?access_token={access_token}"
-            f"&token_type=bearer"
-        )
-        return RedirectResponse(url=frontend_url)
-
-    except requests.RequestException as e:
-        logging.error(f"WeChat API请求失败: {str(e)}")
-        raise HTTPException(
-            status_code=502,
-            detail="微信服务暂时不可用"
-        )
-    except Exception as e:
-        logging.error(f"扫码登录处理异常: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail="服务器内部错误"
-        )
+    
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    
+    # 更新 CSP 策略
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' https://res.wx.qq.com 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "  # 允许内联样式
+        "img-src 'self' https://*.wx.qq.com data:; "
+        "connect-src 'self' https://api.weixin.qq.com"
+    )
+    return response

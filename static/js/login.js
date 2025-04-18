@@ -1,24 +1,43 @@
 $(document).ready(function() {
-    const apiUrl = 'http://127.0.0.1:8000';
+    const apiUrl = 'http://127.0.0.1:8080';
 
-    // 新增：处理微信扫码登录回调
+    // 处理微信扫码登录回调
     function handleWechatCallback() {
         const urlParams = new URLSearchParams(window.location.search);
         const accessToken = urlParams.get('access_token');
         
         if (accessToken) {
             localStorage.setItem('access_token', accessToken);
-            window.location.href = '/home';  // 清除URL参数
+            // 清除URL参数并跳转
+            window.history.replaceState({}, '', '/login');
+            window.location.href = '/home';
         }
     }
 
-    // 初始化时检查是否是回调
-    handleWechatCallback();
+    // 初始化微信扫码登录按钮
+    function initWechatLogin() {
+        $('#wechat-login-btn').click(function() {
+            window.open(
+                '/auth/wechat/qrcode',
+                'wechat-login',
+                'width=500,height=600'
+            );
+        });
+    }
 
+    // 监听来自扫码窗口的消息
+    window.addEventListener('message', (event) => {
+        if (event.data.type === 'wechat-login') {
+            localStorage.setItem('access_token', event.data.token);
+            window.location.href = '/home';
+        }
+    });
+
+    // 标准表单登录处理
     $('#login-form').on('submit', async function(event) {
         event.preventDefault();
-        const loginUsername = $('#login-username').val();
-        const loginPassword = $('#login-password').val();
+        const username = $('#login-username').val();
+        const password = $('#login-password').val();
 
         try {
             const response = await fetch(`${apiUrl}/auth/token`, {
@@ -27,8 +46,8 @@ $(document).ready(function() {
                     'Content-Type': 'application/x-www-form-urlencoded'
                 },
                 body: new URLSearchParams({
-                    username: loginUsername,
-                    password: loginPassword
+                    username: username,
+                    password: password
                 })
             });
 
@@ -37,11 +56,15 @@ $(document).ready(function() {
                 localStorage.setItem('access_token', data.access_token);
                 window.location.href = '/home';
             } else {
-                const errorData = await response.json();
-                alert(`Login failed: ${errorData.detail}`);
+                const error = await response.json();
+                alert(`登录失败: ${error.detail}`);
             }
         } catch (error) {
-            alert(`Login failed: ${error.message}`);
+            alert(`网络错误: ${error.message}`);
         }
     });
+
+    // 初始化
+    handleWechatCallback();
+    initWechatLogin();
 });

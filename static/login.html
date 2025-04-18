@@ -18,10 +18,9 @@
                 <button type="submit" class="btn btn-primary btn-block rounded">登录</button>
             </form>
 
-            <!-- 新增：微信扫码登录分区 -->
             <div class="mt-4 pt-3 border-top">
                 <p class="text-center text-muted mb-3">或使用微信扫码登录</p>
-                <a href="/auth/wechat/qrcode" class="btn btn-outline-secondary btn-block rounded">
+                <a href="#" id="wechat-login-btn" class="btn btn-outline-secondary btn-block rounded">
                     <img src="{{ url_for('static', path='/images/wechat-logo.png') }}" 
                          style="height: 20px; margin-right: 8px;" 
                          alt="微信">
