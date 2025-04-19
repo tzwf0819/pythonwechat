@@ -14,6 +14,14 @@ $(document).ready(function() {
         }
     }
 
+    const checkAccessToken = setInterval(function() {
+        const accessToken = localStorage.getItem('access_token');
+        if (accessToken) {
+            clearInterval(checkAccessToken);
+            window.location.href = '/home';
+        }
+    }, 2000);
+    
     // 初始化微信扫码登录按钮
     function initWechatLogin() {
         $('#wechat-login-btn').click(function() {

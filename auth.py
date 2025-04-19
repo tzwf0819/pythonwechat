@@ -27,6 +27,10 @@ import sqlalchemy
 from database import  get_session, engine
 # 配置日志
 logging.basicConfig(level=logging.DEBUG)
+from fastapi import APIRouter, Depends
+from sqlmodel import Session
+from database import get_session
+import requests
 
 # 加载环境变量
 load_dotenv()
@@ -448,8 +452,39 @@ app.description = """
 # @app.get("/wechat/verify/callback")
 # @app.get("/wechat/verify")
 
-@app.get("/wechat/verify/MP_verify_ruQ59UMPBSFuYRKG.txt")
-async def verify_wechat_file():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(current_dir, "static", "MP_verify_ruQ59UMPBSFuYRKG.txt")
-    return FileResponse(file_path)
+router = APIRouter()
+
+@router.post("/wechat-login-for-web")
+async def wechat_login_for_web(request: WechatLoginRequest, session: Session = Depends(get_session)):
+    # 处理网页端扫码登录逻辑，代码保持不变
+    code = request.code
+    if not code:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing code")
+
+    url = f"https://api.weixin.qq.com/sns/jscode2session?appid={WECHAT_APP_ID}&secret={WECHAT_APP_SECRET}&js_code={code}&grant_type=authorization_code"
+    response = requests.get(url)
+    result = response.json()
+
+    if 'errcode' in result:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.get('errmsg', 'Failed to get openid from WeChat'))
+
+    openid = result.get('openid')
+    if not openid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to get openid")
+
+    user = session.exec(select(User).where(User.wechat_openid == openid)).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+
+    return Token(access_token=access_token, token_type="bearer")
+
+@router.post("/wechat-login-in-miniprogram")
+async def wechat_login_in_miniprogram(request: WechatLoginRequest, session: Session = Depends(get_session)):
+    # 处理小程序内直接登录逻辑，可根据需求添加额外处理
+    # 这里先复用网页端扫码登录的核心逻辑
+    return await wechat_login_for_web(request, session)

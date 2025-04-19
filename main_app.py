@@ -21,6 +21,7 @@ import asyncio
 from dotenv import load_dotenv
 import redis
 from contextlib import asynccontextmanager
+from auth import router as auth_router
 
 load_dotenv()
 
@@ -93,6 +94,7 @@ app.add_middleware(
 
 # 挂载 auth_app 到 /auth 路径
 app.mount("/auth", auth_app)
+app.include_router(auth_router, prefix="/auth")
 
 # 提供静态文件
 app.mount("/static", StaticFiles(directory="static"), name="static")
