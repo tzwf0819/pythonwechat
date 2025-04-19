@@ -17,7 +17,9 @@
       "ignore": [],
       "disablePlugins": [],
       "outputPath": ""
-    }
+    },
+    "component2": true,
+    "lazyCodeLoading": "requiredComponents"
   },
   "condition": {},
   "editorSetting": {

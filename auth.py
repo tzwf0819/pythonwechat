@@ -4,7 +4,6 @@ import os
 import logging
 import base64
 import json
-from fastapi.responses import HTMLResponse
 import qrcode
 from io import BytesIO
 # 第三方库导入
@@ -18,24 +17,16 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlmodel import SQLModel, Field, Session, select
 from sqlalchemy import Column, NVARCHAR
-from redis import asyncio as aioredis
 import requests
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from dotenv import load_dotenv
+import requests
+from fastapi.responses import FileResponse
 import sqlalchemy
-import logging
-# 项目内部模块导入
-from database import engine, get_session
-import asyncio
-from contextlib import asynccontextmanager
-from fastapi import Query
-from fastapi.responses import PlainTextResponse
-import hashlib
-
+from database import  get_session, engine
 # 配置日志
 logging.basicConfig(level=logging.DEBUG)
-
 
 # 加载环境变量
 load_dotenv()
@@ -44,14 +35,9 @@ load_dotenv()
 SECRET_KEY = os.environ.get("SECRET_KEY")
 ALGORITHM = os.environ.get("ALGORITHM")
 
-# 获取微信登录配置
+# 获取微信小程序登录配置
 WECHAT_APP_ID = os.environ.get("WECHAT_APP_ID")
 WECHAT_APP_SECRET = os.environ.get("WECHAT_APP_SECRET")
-
-WECHATGZH_APP_ID = os.getenv("AppID")
-WECHATGZH_APP_SECRET = os.getenv("AppSecret")
-WECHATGZH_REDIRECT_URI = "https://www.yidasoftware.xyz/auth/wechat/callback"  # 替换为你的域名
-
 
 # 访问令牌过期时间（分钟）
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -180,11 +166,6 @@ async def get_current_active_user(
     return current_user
 
 # FastAPI 应用实例
-
-
-
-
-
 app = FastAPI()
 
 # 跨域请求处理
@@ -221,7 +202,6 @@ async def login_for_access_token(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal Server Error: {str(e)}"
         )
-
 
 @app.post("/users/", response_model=User)
 async def create_user(user: UserCreate, session: Session = Depends(get_session)):
@@ -339,9 +319,9 @@ async def wechat_login(
     session: Session = Depends(get_session),
     client_ip: str = Depends(get_client_ip)
 ):
-    """优化后的微信登录接口"""
+    """优化后的微信小程序登录接口"""
     try:
-        # 1. 获取微信session_key
+        # 1. 获取微信 session_key 和 openid
         wx_url = f"https://api.weixin.qq.com/sns/jscode2session?appid={WECHAT_APP_ID}&secret={WECHAT_APP_SECRET}&js_code={request.code}&grant_type=authorization_code"
         wx_res = requests.get(wx_url, timeout=10)
         wx_res.raise_for_status()
@@ -350,16 +330,19 @@ async def wechat_login(
         if 'errcode' in wx_data:
             raise HTTPException(status_code=400, detail=wx_data['errmsg'])
         
+        openid = wx_data['openid']
+        session_key = wx_data['session_key']
+        
         # 2. 处理用户数据
-        user = session.exec(select(User).where(User.wechat_openid == wx_data['openid'])).first()
+        user = session.exec(select(User).where(User.wechat_openid == openid)).first()
         is_new_user = False
         
         if not user:
             default_password = get_password_hash("123123")
             user = User(
-                wechat_openid=wx_data['openid'],
-                wechat_session_key=wx_data['session_key'],
-                username=f"wx_{wx_data['openid'][-8:]}",
+                wechat_openid=openid,
+                wechat_session_key=session_key,
+                username=f"wx_{openid[-8:]}",
                 full_name="微信用户",  # 临时默认值
                 disabled=False,
                 hashed_password=default_password
@@ -368,14 +351,14 @@ async def wechat_login(
             is_new_user = True
         
         # 3. 更新用户信息
-        user.wechat_session_key = wx_data['session_key']
+        user.wechat_session_key = session_key
         user.last_login = datetime.now(timezone.utc)
         user.login_ip = client_ip
         
         # 4. 解密微信信息（如果有）
         if request.encrypted_data and request.iv:
             try:
-                user_info = decrypt_wechat_info(request.encrypted_data, request.iv, wx_data['session_key'])
+                user_info = decrypt_wechat_info(request.encrypted_data, request.iv, session_key)
                 user.full_name = user_info.get('nickName', user.full_name)
                 user.avatar_url = user_info.get('avatarUrl', user.avatar_url)
             except Exception as e:
@@ -454,95 +437,19 @@ app.description = """
 - 密码字段传输前需要前端进行 SHA256 哈希
 - JWT 令牌有效期 30 分钟
 """
-SCOPE = "snsapi_base" # 需要获取用户信息时使用
 
-@app.get("/wechat/qrcode")
-async def generate_login_qrcode():
-    auth_url = (
-        f"https://open.weixin.qq.com/connect/oauth2/authorize"
-        f"?appid={WECHATGZH_APP_ID}"
-        f"&redirect_uri={WECHATGZH_REDIRECT_URI}"
-        f"&response_type=code"
-        f"&scope={SCOPE}"
-        f"#wechat_redirect"
-    )
-    # 生成二维码
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=4,
-    )
-    qr.add_data(auth_url)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
+# 删除公众号相关的路由和配置
+# 比如下面这些原本和公众号相关的代码都被删除了
+# WECHATGZH_APP_ID = os.getenv("AppID")
+# WECHATGZH_APP_SECRET = os.getenv("AppSecret")
+# WECHATGZH_REDIRECT_URI = "https://www.yidasoftware.xyz/auth/wechat/callback"
+# SCOPE = "snsapi_base" 
+# @app.get("/wechat/verify/qrcode")
+# @app.get("/wechat/verify/callback")
+# @app.get("/wechat/verify")
 
-    # 将图片保存到内存
-    img_byte_arr = BytesIO()
-    img.save(img_byte_arr, format='PNG')
-    img_byte_arr = img_byte_arr.getvalue()
-
-    return Response(content=img_byte_arr, media_type="image/png")
-
-@app.get("/wechat/callback")
-async def handle_wechat_callback(code: str):
-    token_url = (
-        f"https://api.weixin.qq.com/sns/oauth2/access_token"
-        f"?appid={WECHATGZH_APP_ID}"
-        f"&secret={WECHATGZH_REDIRECT_URI}"
-        f"&code={code}"
-        f"&grant_type=authorization_code"
-    )
-    response = requests.get(token_url)
-    result = response.json()
-    if 'openid' in result:
-        openid = result['openid']
-        # 这里可以添加数据库比对和新建用户的逻辑
-        # ...
-        return {"openid": openid}
-    else:
-        return {"error": "获取 openid 失败", "result": result}
-    
-@app.get("/wechat/verify")
-async def verify_wechat_server(
-    signature: str = Query(..., alias="signature"),
-    timestamp: str = Query(..., alias="timestamp"),
-    nonce: str = Query(..., alias="nonce"),
-    echostr: str = Query(..., alias="echostr")
-):
-    """微信公众平台服务器验证接口"""
-    token = "JazzHiphop"  # 与公众号后台配置完全一致
-    
-    # 1. 参数排序
-    params = sorted([token, timestamp, nonce])
-    param_str = "".join(params)
-    
-    # 2. SHA1加密
-    hashcode = hashlib.sha1(param_str.encode()).hexdigest()
-    
-    # 调试日志（生产环境应移除）
-    print(f"验证参数 - token:{token}, 微信签名:{signature}")
-    print(f"生成签名: {hashcode} (输入字符串: '{param_str}')")
-    
-    # 3. 验证签名
-    if hashcode == signature:
-        return PlainTextResponse(content=echostr)
-    else:
-        return PlainTextResponse(
-            content=f"Signature verification failed\nLocal: {hashcode}\nWeChat: {signature}",
-            status_code=403
-        )
-    
-@app.middleware("http")
-async def security_headers_middleware(request: Request, call_next):
-    response = await call_next(request)
-    
-    # 更新 CSP 策略
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; "
-        "script-src 'self' https://res.wx.qq.com 'unsafe-inline'; "
-        "style-src 'self' 'unsafe-inline'; "  # 允许内联样式
-        "img-src 'self' https://*.wx.qq.com data:; "
-        "connect-src 'self' https://api.weixin.qq.com"
-    )
-    return response
+@app.get("/wechat/verify/MP_verify_ruQ59UMPBSFuYRKG.txt")
+async def verify_wechat_file():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(current_dir, "static", "MP_verify_ruQ59UMPBSFuYRKG.txt")
+    return FileResponse(file_path)

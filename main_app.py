@@ -273,3 +273,8 @@ async def upload_image(file: UploadFile = File(...)):
         print('Put File Failed')
         print(traceback.format_exc())
         return {"error": str(e)}
+    
+
+    # 获取微信小程序登录配置
+
+

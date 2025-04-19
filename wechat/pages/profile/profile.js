@@ -39,7 +39,7 @@ Page({
       wx.login({
         success: (loginRes) => {
           wx.request({
-            url: 'https://yidasoftware.xyz/wechat-login',
+            url: 'https://yidasoftware.xyz/auth/wechat-login',
             method: 'POST',
             data: {
               code: loginRes.code,
@@ -75,7 +75,7 @@ Page({
   // 获取用户资料
   fetchUserProfile() {
     wx.request({
-      url: 'https://yidasoftware.xyz/users/me',
+      url: 'https://yidasoftware.xyz/auth/users/me',
       method: 'GET',
       header: {
         'Authorization': 'Bearer ' + wx.getStorageSync('access_token')
@@ -105,7 +105,7 @@ Page({
   getPhoneNumber(e) {
     if (e.detail.code) {
       wx.request({
-        url: 'https://yidasoftware.xyz/decrypt-phone',
+        url: 'https://yidasoftware.xyz/auth/decrypt-phone',
         method: 'POST',
         data: { code: e.detail.code },
         header: {
@@ -146,7 +146,7 @@ Page({
     console.log('提交数据:', JSON.stringify(postData));
     
     wx.request({
-      url: 'https://yidasoftware.xyz/update-profile',
+      url: 'https://yidasoftware.xyz/auth/update-profile',
       method: 'POST',
       data: postData,
       header: {

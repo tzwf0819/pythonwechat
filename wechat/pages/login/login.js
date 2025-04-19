@@ -23,7 +23,7 @@ Page({
           if (loginRes.code) {
             // Send user info and code to backend
             wx.request({
-              url: 'https://yidasoftware.xyz/wechat-login',
+              url: 'https://yidasoftware.xyz/auth/wechat-login',
               method: 'POST',
               data: {
                 nickName: userInfo.nickName,

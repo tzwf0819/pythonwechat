@@ -18,7 +18,7 @@ $(document).ready(function() {
     function initWechatLogin() {
         $('#wechat-login-btn').click(function() {
             window.open(
-                '/auth/wechat/qrcode',
+                '/auth/wechat/verify/qrcode',
                 'wechat-login',
                 'width=500,height=600'
             );
